@@ -10,7 +10,12 @@ version = "0.1.0"
 [dependencies]
 anyhow = "1.0.103"
 clap = { version = "4.6.1", features = ["derive"] }
+regex = "1.13.0"
 tokio = { version = "1.52.3", features = ["full"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+unicode-normalization = "0.1.25"
 walkdir = "2.5.0"
+
+[dev-dependencies]
+rstest = "0.26.1"
