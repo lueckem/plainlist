@@ -1,0 +1,10 @@
+[package]
+name = "plainlist"
+authors = ["Marvin Lücke"]
+description = "Easy to edit music playlists"
+readme = "README.md"
+license = "MIT"
+edition = "2024"
+version = "0.1.0"
+
+[dependencies]
