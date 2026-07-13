@@ -5,6 +5,7 @@ use crate::logging::init_logging;
 
 mod logging;
 mod normalize;
+mod track;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
