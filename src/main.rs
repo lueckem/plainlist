@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
+use anyhow::Context;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use tracing::info;
 
-use crate::logging::init_logging;
+use crate::{logging::init_logging, track::read_tracks_from_plainlist};
 
 mod logging;
 mod normalize;
@@ -61,9 +62,20 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Resolve(_) => info!("resolve"),
-        Commands::Extract(_) => info!("extract"),
-    };
+        Commands::Resolve(args) => process_resolve(args).await,
+        Commands::Extract(_) => Ok(()),
+    }
+}
+
+async fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
+    let path = &args.input;
+    info!("Parsing plainlist at {}", path);
+    let tracks = read_tracks_from_plainlist(path)
+        .await
+        .with_context(|| format!("failed to parse plainlist file '{}'", path))?;
+    for t in tracks {
+        println!("{t}");
+    }
 
     Ok(())
 }

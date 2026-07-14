@@ -5,6 +5,7 @@ use std::{
     sync::LazyLock,
 };
 
+use anyhow::Context;
 use regex::Regex;
 use thiserror::Error;
 
@@ -37,12 +38,13 @@ impl FromStr for Track {
         let (artists, title) = s
             .split_once(" -- ")
             .ok_or(ParsePlainError::MissingSeparator)?;
+
+        let title = title.trim().to_string();
         if title.is_empty() {
             return Err(ParsePlainError::EmptyTitle);
         }
 
         static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"; | / | feat\. ").unwrap());
-
         let artists: Vec<String> = RE
             .split(artists)
             .map(str::trim)
@@ -53,7 +55,7 @@ impl FromStr for Track {
             return Err(ParsePlainError::EmptyArtist);
         }
 
-        Ok(Track::new(title.trim().to_string(), artists))
+        Ok(Track::new(title, artists))
     }
 }
 
@@ -61,6 +63,19 @@ impl Display for Track {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} -- {}", self.artists.join("; "), self.title)
     }
+}
+
+pub async fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<Track>> {
+    let content = tokio::fs::read_to_string(path).await?;
+
+    let mut tracks = Vec::new();
+    for (i, l) in content.lines().enumerate() {
+        let track = l
+            .parse::<Track>()
+            .with_context(|| format!("invalid format in line {}: '{}'", i + 1, l))?;
+        tracks.push(track);
+    }
+    Ok(tracks)
 }
 
 #[derive(Debug, Clone)]
@@ -100,7 +115,9 @@ mod tests {
     #[case("System Of A Down - Chop Suey")]
     #[case("System Of A Down--Chop Suey")]
     #[case("System Of A Down -- ")]
+    #[case("System Of A Down --    ")]
     #[case(" -- Chop Suey")]
+    #[case("   -- Chop Suey")]
     fn track_from_str_err(#[case] input: &str) {
         assert!(Track::from_str(input).is_err())
     }
