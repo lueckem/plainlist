@@ -1,4 +1,9 @@
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::LazyLock,
+};
 
 use regex::Regex;
 use thiserror::Error;
@@ -36,9 +41,9 @@ impl FromStr for Track {
             return Err(ParsePlainError::EmptyTitle);
         }
 
-        let re = Regex::new(r"; | / | feat\. ").unwrap();
+        static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"; | / | feat\. ").unwrap());
 
-        let artists: Vec<String> = re
+        let artists: Vec<String> = RE
             .split(artists)
             .map(str::trim)
             .filter(|a| !a.is_empty())
@@ -48,7 +53,7 @@ impl FromStr for Track {
             return Err(ParsePlainError::EmptyArtist);
         }
 
-        Ok(Track::new(title.to_string(), artists))
+        Ok(Track::new(title.trim().to_string(), artists))
     }
 }
 
@@ -78,6 +83,7 @@ mod tests {
 
     #[rstest]
     #[case("System Of A Down -- Chop Suey", "Chop Suey", vec!["System Of A Down"])]
+    #[case("   System Of A Down    --     Chop Suey ", "Chop Suey", vec!["System Of A Down"])]
     #[case("AC/DC -- Highway to Hell", "Highway to Hell", vec!["AC/DC"])]
     #[case("Jay-Z; Linkin Park -- Numb / Encore", "Numb / Encore", vec!["Jay-Z", "Linkin Park"])]
     #[case("Jay-Z / Linkin Park -- Numb / Encore", "Numb / Encore", vec!["Jay-Z", "Linkin Park"])]
