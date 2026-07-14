@@ -54,7 +54,6 @@ impl FromStr for Track {
 
 impl Display for Track {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: what should the default separator be?
         write!(f, "{} -- {}", self.artists.join("; "), self.title)
     }
 }
@@ -77,18 +76,39 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
-    // TODO: more tests
     #[rstest]
     #[case("System Of A Down -- Chop Suey", "Chop Suey", vec!["System Of A Down"])]
     #[case("AC/DC -- Highway to Hell", "Highway to Hell", vec!["AC/DC"])]
     #[case("Jay-Z; Linkin Park -- Numb / Encore", "Numb / Encore", vec!["Jay-Z", "Linkin Park"])]
     #[case("Jay-Z / Linkin Park -- Numb / Encore", "Numb / Encore", vec!["Jay-Z", "Linkin Park"])]
     #[case("Jay-Z feat. Linkin Park -- Numb / Encore", "Numb / Encore", vec!["Jay-Z", "Linkin Park"])]
+    #[case("Earth, Wind & Fire -- September", "September", vec!["Earth, Wind & Fire"])]
+    #[case("BABY GRAVY / Yung Gravy; bbno$ feat. Rich Brian -- C'est La Vie", "C'est La Vie", vec!["BABY GRAVY", "Yung Gravy", "bbno$", "Rich Brian"])]
     fn track_from_str(#[case] input: &str, #[case] title: &str, #[case] artists: Vec<&str>) {
         let track = Track::from_str(input).unwrap();
         assert_eq!(track.title, title);
         assert_eq!(track.artists, artists);
     }
 
-    // TODO: tests track_from_str_err
+    #[rstest]
+    #[case("System Of A Down - Chop Suey")]
+    #[case("System Of A Down--Chop Suey")]
+    #[case("System Of A Down -- ")]
+    #[case(" -- Chop Suey")]
+    fn track_from_str_err(#[case] input: &str) {
+        assert!(Track::from_str(input).is_err())
+    }
+
+    #[rstest]
+    #[case("System Of A Down -- Chop Suey", "Chop Suey", vec!["System Of A Down"])]
+    #[case("Jay-Z; Linkin Park -- Numb / Encore", "Numb / Encore", vec!["Jay-Z", "Linkin Park"])]
+    #[case("BABY GRAVY; Yung Gravy; bbno$; Rich Brian -- C'est La Vie", "C'est La Vie", vec!["BABY GRAVY", "Yung Gravy", "bbno$", "Rich Brian"])]
+    fn track_to_str(#[case] expected: &str, #[case] title: &str, #[case] artists: Vec<&str>) {
+        // let artists: Vec<String> = artists.to_owned();
+        let track = Track::new(
+            title.to_owned(),
+            artists.into_iter().map(str::to_string).collect(),
+        );
+        assert_eq!(track.to_string(), expected);
+    }
 }
