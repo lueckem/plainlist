@@ -1,13 +1,21 @@
 use std::{
     fmt::Display,
+    io::BufReader,
     path::{Path, PathBuf},
     str::FromStr,
     sync::LazyLock,
 };
 
 use anyhow::Context;
+use lofty::{
+    file::{FileType, TaggedFileExt},
+    probe::Probe,
+    tag::{Accessor, ItemKey, Tag},
+};
 use regex::Regex;
 use thiserror::Error;
+use tokio::fs::File;
+use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub struct Track {
@@ -89,6 +97,101 @@ impl LocalTrack {
         let track = Track::new(title, artists);
         Self { track, path }
     }
+
+    pub async fn read_from_file(path: &Path) -> anyhow::Result<Self> {
+        let mut title: Option<String> = None;
+        let mut artists: Vec<String> = Vec::new();
+
+        let mut file = File::open(path).await?.into_std().await;
+        let tagged_file = if let Some(file_type) = FileType::from_path(path) {
+            Probe::with_file_type(BufReader::new(file), file_type)
+                .read()
+                .with_context(|| format!("failed to get tags for {}", path.display()))?
+        } else {
+            debug!("Could not determine file type for {}", path.display());
+            lofty::read_from(&mut file)
+                .with_context(|| format!("failed to get tags for {}", path.display()))?
+        };
+
+        // typically there is only 1 tag
+        for tag in tagged_file.tags() {
+            title = title.or_else(|| tag.title().map(|x| x.to_string()));
+            append_artists_from_tag(&mut artists, tag);
+        }
+
+        let Some(title) = title else {
+            anyhow::bail!("failed to get title for {}", path.display())
+        };
+        if title.is_empty() {
+            anyhow::bail!("empty title for {}", path.display())
+        }
+        if artists.is_empty() {
+            anyhow::bail!("failed to get artists for {}", path.display())
+        };
+
+        Ok(Self::new(title, artists, path.to_path_buf()))
+    }
+}
+
+/// First, attempts to read the "TrackArtists".
+/// If there are none, attempts to read "TrackArtist" and to separate into artists.
+/// If still no artists are found, fall back to "AlbumArtists" and "AlbumArtist".
+fn append_artists_from_tag(artists: &mut Vec<String>, tag: &Tag) {
+    // FIXME: make sure that no empty artists are appended
+    let len_before = artists.len();
+
+    artists.extend(
+        tag.get_strings(ItemKey::TrackArtists)
+            .map(|s| s.trim().to_string()),
+    );
+    if artists.len() > len_before {
+        return;
+    }
+
+    if let Some(artist) = tag.get_string(ItemKey::TrackArtist) {
+        match separate_artists(artist) {
+            None => artists.push(artist.trim().to_string()),
+            Some(sep_artists) => artists.extend(sep_artists),
+        }
+        return;
+    }
+
+    // fall back to album artist
+    artists.extend(
+        tag.get_strings(ItemKey::AlbumArtists)
+            .map(|s| s.trim().to_string()),
+    );
+    if artists.len() > len_before {
+        return;
+    }
+
+    if let Some(artist) = tag.get_string(ItemKey::AlbumArtist) {
+        match separate_artists(artist) {
+            None => artists.push(artist.trim().to_string()),
+            Some(sep_artists) => artists.extend(sep_artists),
+        }
+        return;
+    }
+}
+
+/// "Artist1; Artist2" -> ["Artist1", "Artist2"]
+/// "Artist1 feat. Artist2" -> ["Artist1", "Artist2"]
+/// "Artist1 / Artist2" -> ["Artist1", "Artist2"]
+///
+/// If no separate artists were found, returns None.
+fn separate_artists(artist: &str) -> Option<Vec<String>> {
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r";| / | feat\. | feat | ft\. | ft ").unwrap());
+
+    let artists: Vec<&str> = RE
+        .split(artist)
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+        .collect();
+    if artists.len() == 1 {
+        return None; // there is only one artist
+    }
+    Some(artists.into_iter().map(str::to_string).collect())
 }
 
 #[cfg(test)]
@@ -134,4 +237,6 @@ mod tests {
         );
         assert_eq!(track.to_string(), expected);
     }
+
+    // TODO: test separate_artists
 }
