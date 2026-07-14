@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use regex::Regex;
 use thiserror::Error;
@@ -49,6 +49,13 @@ impl FromStr for Track {
         }
 
         Ok(Track::new(title.to_string(), artists))
+    }
+}
+
+impl Display for Track {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TODO: what should the default separator be?
+        write!(f, "{} -- {}", self.artists.join("; "), self.title)
     }
 }
 
