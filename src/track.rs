@@ -78,6 +78,12 @@ pub async fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Resul
 
     let mut tracks = Vec::new();
     for (i, l) in content.lines().enumerate() {
+        let l = l.trim();
+
+        // skip comments and empty lines
+        if l.starts_with('#') || l.is_empty() {
+            continue;
+        }
         let track = l
             .parse::<Track>()
             .with_context(|| format!("invalid format in line {}: '{}'", i + 1, l))?;
