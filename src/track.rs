@@ -8,13 +8,12 @@ use std::{
 
 use anyhow::Context;
 use lofty::{
-    file::{FileType, TaggedFileExt},
+    file::{FileType, TaggedFile, TaggedFileExt},
     probe::Probe,
     tag::{Accessor, ItemKey, Tag},
 };
 use regex::Regex;
 use thiserror::Error;
-use tokio::fs::File;
 use tracing::debug;
 
 #[derive(Debug, Clone)]
@@ -104,100 +103,75 @@ impl LocalTrack {
         Self { track, path }
     }
 
-    pub async fn read_from_file(path: &Path) -> anyhow::Result<Self> {
-        let mut title: Option<String> = None;
-        let mut artists: Vec<String> = Vec::new();
+    pub fn read_from_file(path: &Path) -> anyhow::Result<Self> {
+        let tagged_file = read_tagged_file(path)?;
 
-        let mut file = File::open(path).await?.into_std().await;
-        let tagged_file = if let Some(file_type) = FileType::from_path(path) {
-            Probe::with_file_type(BufReader::new(file), file_type)
-                .read()
-                .with_context(|| format!("failed to get tags for {}", path.display()))?
-        } else {
-            debug!("Could not determine file type for {}", path.display());
-            lofty::read_from(&mut file)
-                .with_context(|| format!("failed to get tags for {}", path.display()))?
-        };
+        let tag = tagged_file
+            .primary_tag()
+            .or_else(|| tagged_file.first_tag())
+            .with_context(|| format!("no tags found for {}", path.display()))?;
 
-        // typically there is only 1 tag
-        for tag in tagged_file.tags() {
-            title = title.or_else(|| tag.title().map(|x| x.to_string()));
-            append_artists_from_tag(&mut artists, tag);
-        }
+        let title = tag
+            .title()
+            .map(|t| t.trim().to_owned())
+            .filter(|t| !t.is_empty())
+            .with_context(|| format!("missing or empty title for {}", path.display()))?;
 
-        let Some(title) = title else {
-            anyhow::bail!("failed to get title for {}", path.display())
-        };
-        if title.is_empty() {
-            anyhow::bail!("empty title for {}", path.display())
-        }
-        if artists.is_empty() {
-            anyhow::bail!("failed to get artists for {}", path.display())
-        };
+        let artists = read_artists(tag)
+            .with_context(|| format!("failed to get artists for {}", path.display()))?;
 
         Ok(Self::new(title, artists, path.to_path_buf()))
     }
 }
 
-/// First, attempts to read the "TrackArtists".
-/// If there are none, attempts to read "TrackArtist" and to separate into artists.
-/// If still no artists are found, fall back to "AlbumArtists" and "AlbumArtist".
-fn append_artists_from_tag(artists: &mut Vec<String>, tag: &Tag) {
-    // FIXME: make sure that no empty artists are appended
-    let len_before = artists.len();
+fn read_tagged_file(path: &Path) -> anyhow::Result<TaggedFile> {
+    let mut file =
+        std::fs::File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
 
-    artists.extend(
-        tag.get_strings(ItemKey::TrackArtists)
-            .map(|s| s.trim().to_string()),
-    );
-    if artists.len() > len_before {
-        return;
-    }
-
-    if let Some(artist) = tag.get_string(ItemKey::TrackArtist) {
-        match separate_artists(artist) {
-            None => artists.push(artist.trim().to_string()),
-            Some(sep_artists) => artists.extend(sep_artists),
-        }
-        return;
-    }
-
-    // fall back to album artist
-    artists.extend(
-        tag.get_strings(ItemKey::AlbumArtists)
-            .map(|s| s.trim().to_string()),
-    );
-    if artists.len() > len_before {
-        return;
-    }
-
-    if let Some(artist) = tag.get_string(ItemKey::AlbumArtist) {
-        match separate_artists(artist) {
-            None => artists.push(artist.trim().to_string()),
-            Some(sep_artists) => artists.extend(sep_artists),
-        }
-        return;
-    }
+    let tagged_file = if let Some(file_type) = FileType::from_path(path) {
+        Probe::with_file_type(BufReader::new(file), file_type)
+            .read()
+            .with_context(|| format!("failed to get tags for {}", path.display()))?
+    } else {
+        debug!("Could not determine file type for {}", path.display());
+        lofty::read_from(&mut file)
+            .with_context(|| format!("failed to get tags for {}", path.display()))?
+    };
+    Ok(tagged_file)
 }
 
-/// "Artist1; Artist2" -> ["Artist1", "Artist2"]
-/// "Artist1 feat. Artist2" -> ["Artist1", "Artist2"]
-/// "Artist1 / Artist2" -> ["Artist1", "Artist2"]
-///
-/// If no separate artists were found, returns None.
-fn separate_artists(artist: &str) -> Option<Vec<String>> {
-    static RE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r";| / | feat\. | feat | ft\. | ft ").unwrap());
+/// Tries TrackArtists -> TrackArtist -> AlbumArtists -> AlbumArtist,
+/// returning the first non-empty result.
+fn read_artists(tag: &Tag) -> Option<Vec<String>> {
+    read_multi(tag, ItemKey::TrackArtists)
+        .or_else(|| read_single(tag, ItemKey::TrackArtist))
+        .or_else(|| read_multi(tag, ItemKey::AlbumArtists))
+        .or_else(|| read_single(tag, ItemKey::AlbumArtist))
+}
 
-    let artists: Vec<&str> = RE
-        .split(artist)
+fn read_multi(tag: &Tag, key: ItemKey) -> Option<Vec<String>> {
+    let artists: Vec<String> = tag
+        .get_strings(key)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+    (!artists.is_empty()).then_some(artists)
+}
+
+fn read_single(tag: &Tag, key: ItemKey) -> Option<Vec<String>> {
+    let artist = tag.get_string(key)?.trim();
+    (!artist.is_empty()).then(|| split_artists(artist))
+}
+
+fn split_artists(artist: &str) -> Vec<String> {
+    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r";| / | feat\.? | ft\.? ").unwrap());
+
+    RE.split(artist)
         .map(str::trim)
         .filter(|a| !a.is_empty())
-        .collect();
-    if artists.len() == 1 {
-        return None; // there is only one artist
-    }
-    Some(artists.into_iter().map(str::to_string).collect())
+        .map(str::to_string)
+        .collect()
 }
 
 #[cfg(test)]
@@ -243,6 +217,4 @@ mod tests {
         );
         assert_eq!(track.to_string(), expected);
     }
-
-    // TODO: test separate_artists
 }
