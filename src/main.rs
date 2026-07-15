@@ -55,23 +55,21 @@ struct ExtractArgs {
     output: Option<String>,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     // initialize
     init_logging();
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Resolve(args) => process_resolve(args).await,
+        Commands::Resolve(args) => process_resolve(args),
         Commands::Extract(_) => Ok(()),
     }
 }
 
-async fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
+fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     let path = &args.input;
     info!("Parsing plainlist at {}", path);
     let tracks = read_tracks_from_plainlist(path)
-        .await
         .with_context(|| format!("failed to parse plainlist file '{}'", path))?;
     for t in tracks {
         println!("{t}");

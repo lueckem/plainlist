@@ -72,8 +72,8 @@ impl Display for Track {
     }
 }
 
-pub async fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<Track>> {
-    let content = tokio::fs::read_to_string(path).await?;
+pub fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<Track>> {
+    let content = std::fs::read_to_string(path)?;
 
     let mut tracks = Vec::new();
     for (i, l) in content.lines().enumerate() {
