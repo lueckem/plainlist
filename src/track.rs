@@ -8,13 +8,15 @@ use std::{
 
 use anyhow::Context;
 use lofty::{
-    file::{FileType, TaggedFile, TaggedFileExt},
+    file::{EXTENSIONS, FileType, TaggedFile, TaggedFileExt},
     probe::Probe,
     tag::{Accessor, ItemKey, Tag},
 };
+use rayon::prelude::*;
 use regex::Regex;
 use thiserror::Error;
-use tracing::debug;
+use tracing::{debug, warn};
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone)]
 pub struct Track {
@@ -103,8 +105,8 @@ impl LocalTrack {
         Self { track, path }
     }
 
-    pub fn read_from_file(path: &Path) -> anyhow::Result<Self> {
-        let tagged_file = read_tagged_file(path)?;
+    pub fn read_from_file(path: PathBuf) -> anyhow::Result<Self> {
+        let tagged_file = read_tagged_file(&path)?;
 
         let tag = tagged_file
             .primary_tag()
@@ -120,7 +122,7 @@ impl LocalTrack {
         let artists = read_artists(tag)
             .with_context(|| format!("failed to get artists for {}", path.display()))?;
 
-        Ok(Self::new(title, artists, path.to_path_buf()))
+        Ok(Self::new(title, artists, path))
     }
 }
 
@@ -171,6 +173,29 @@ fn split_artists(artist: &str) -> Vec<String> {
         .map(str::trim)
         .filter(|a| !a.is_empty())
         .map(str::to_string)
+        .collect()
+}
+
+pub fn scan_dir(path: &Path) -> Vec<LocalTrack> {
+    let paths: Vec<PathBuf> = WalkDir::new(path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .map(|e| e.into_path())
+        .filter(|p| {
+            p.extension()
+                .is_some_and(|ext| EXTENSIONS.iter().any(|e| *e == ext))
+        })
+        .collect();
+
+    paths
+        .into_par_iter()
+        .filter_map(|path| {
+            debug!("Parsing: {path:?}");
+            LocalTrack::read_from_file(path)
+                .inspect_err(|err| warn!("Failed to parse file: {err:#}"))
+                .ok()
+        })
         .collect()
 }
 

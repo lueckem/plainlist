@@ -1,10 +1,15 @@
 #![allow(dead_code)]
 
+use std::path::Path;
+
 use anyhow::Context;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use tracing::info;
 
-use crate::{logging::init_logging, track::read_tracks_from_plainlist};
+use crate::{
+    logging::init_logging,
+    track::{read_tracks_from_plainlist, scan_dir},
+};
 
 mod library;
 mod logging;
@@ -74,6 +79,13 @@ fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
         .with_context(|| format!("failed to parse plainlist file '{}'", path))?;
     for t in tracks {
         println!("{t}");
+    }
+
+    let path = Path::new("/home/marvin/Music/");
+    let tracks = scan_dir(path);
+    println!("{}", tracks.len());
+    for t in tracks {
+        println!("{}", t.track);
     }
 
     Ok(())
