@@ -6,6 +6,7 @@ use tracing::info;
 
 use crate::{logging::init_logging, track::read_tracks_from_plainlist};
 
+mod library;
 mod logging;
 mod normalize;
 mod track;
