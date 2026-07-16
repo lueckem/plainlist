@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{normalize::NormalizedTitle, track::LocalTrack};
 
 pub struct Library {
-    tracks: HashMap<NormalizedTitle, Vec<LocalTrack>>,
+    pub tracks: HashMap<NormalizedTitle, Vec<LocalTrack>>,
 }
 
 impl Library {
@@ -11,6 +11,17 @@ impl Library {
         Self {
             tracks: HashMap::new(),
         }
+    }
+
+    pub fn from_tracks(tracks: Vec<LocalTrack>) -> Self {
+        let mut l = Self {
+            tracks: HashMap::with_capacity(tracks.len()),
+        };
+
+        for lt in tracks {
+            l.insert(lt);
+        }
+        l
     }
 
     pub fn insert(&mut self, lt: LocalTrack) {

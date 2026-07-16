@@ -7,6 +7,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use tracing::info;
 
 use crate::{
+    library::Library,
     logging::init_logging,
     track::{read_tracks_from_plainlist, scan_dir},
 };
@@ -73,20 +74,21 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
-    let path = &args.input;
-    info!("Parsing plainlist at {}", path);
-    let tracks = read_tracks_from_plainlist(path)
-        .with_context(|| format!("failed to parse plainlist file '{}'", path))?;
-    for t in tracks {
-        println!("{t}");
-    }
+    let path = Path::new(&args.input);
+    info!("Parsing plainlist at {}...", path.display());
+    let plainlist_tracks = read_tracks_from_plainlist(path)
+        .with_context(|| format!("failed to parse plainlist file '{}'", path.display()))?;
+    info!(
+        "Plainlist {} contains {} tracks",
+        path.display(),
+        plainlist_tracks.len()
+    );
 
     let path = Path::new("/home/marvin/Music/");
+    info!("Scanning {} for tracks...", path.display());
     let tracks = scan_dir(path);
-    println!("{}", tracks.len());
-    for t in tracks {
-        println!("{}", t.track);
-    }
+    info!("Found {} tracks", tracks.len());
+    let library = Library::from_tracks(tracks);
 
     Ok(())
 }
