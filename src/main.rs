@@ -7,7 +7,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use tracing::info;
 
 use crate::{
-    library::Library,
+    library::{Library, QueryResult},
     logging::init_logging,
     track::{read_tracks_from_plainlist, scan_dir},
 };
@@ -89,6 +89,22 @@ fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     let tracks = scan_dir(path);
     info!("Found {} tracks", tracks.len());
     let library = Library::from_tracks(tracks);
+
+    for t in plainlist_tracks {
+        match library.query(&t) {
+            QueryResult::NotFound => info!("NotFound: '{}'", t),
+            QueryResult::Found(lt) => info!("Found: '{}' at '{}'", t, lt.path.display()),
+            QueryResult::FoundArtistMismatch(lt) => info!(
+                "FoundArtistMismatch: '{}' vs '{}' at '{}'",
+                t,
+                lt.track,
+                lt.path.display()
+            ),
+            QueryResult::Ambiguous(lts) => {
+                info!("Ambiguous: found {} matches for track '{}'", lts.len(), t)
+            }
+        }
+    }
 
     Ok(())
 }
