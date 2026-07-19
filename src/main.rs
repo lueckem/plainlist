@@ -2,8 +2,9 @@
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::{logging::init_logging, resolve::process_resolve};
+use crate::{extract::process_extract, logging::init_logging, resolve::process_resolve};
 
+mod extract;
 mod library;
 mod logging;
 mod normalize;
@@ -62,6 +63,6 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Resolve(args) => process_resolve(args),
-        Commands::Extract(_) => Ok(()),
+        Commands::Extract(args) => process_extract(args),
     }
 }

@@ -36,6 +36,13 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// parse all plainlists in the in_path
+/// and return the tracklists and the corresponding output paths
+fn parse_plainlists(in_path: &Path, out_path: &Path) -> anyhow::Result<Vec<(Vec<Track>, PathBuf)>> {
+    todo!()
+    // Ok(Vec::new())
+}
+
 fn resolve_plainlist(
     plainlist_tracks: &[Track],
     library: &Library,
