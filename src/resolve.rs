@@ -6,7 +6,7 @@ use tracing::info;
 use crate::{
     ResolveArgs,
     library::{Library, QueryResult},
-    track::{read_tracks_from_plainlist, scan_dir},
+    track::{Track, read_tracks_from_plainlist, scan_dir},
 };
 
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
@@ -26,6 +26,21 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     info!("Found {} tracks", tracks.len());
     let library = Library::from_tracks(tracks);
 
+    let out_path = args
+        .output
+        .map(|s| PathBuf::from(s).with_extension("m3u"))
+        .unwrap_or_else(|| path.with_extension("m3u"));
+
+    resolve_plainlist(&plainlist_tracks, &library, &out_path)?;
+
+    Ok(())
+}
+
+fn resolve_plainlist(
+    plainlist_tracks: &[Track],
+    library: &Library,
+    out_path: &Path,
+) -> anyhow::Result<()> {
     let mut content = String::new();
     for t in plainlist_tracks {
         let track_path = match library.query(&t) {
@@ -55,12 +70,7 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
         content.push('\n');
     }
 
-    let out_path = args
-        .output
-        .map(|s| PathBuf::from(s).with_extension("m3u"))
-        .unwrap_or_else(|| path.with_extension("m3u"));
     info!("Saving playlist at {}...", out_path.display());
     std::fs::write(out_path, content)?;
-
     Ok(())
 }
