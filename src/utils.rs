@@ -13,6 +13,8 @@ use anyhow::{Context, bail};
 /// in the `output` dir with the `out_ext` extension.
 /// If `input` is a directory and `output` is `None`, searches for all files with `in_ext` and puts
 /// the output paths next to them with same stem and `out_ext` extension.
+///
+/// Might return an empty vector if there are no files with `in_ext` in the directory.
 pub fn collect_inputs_outputs(
     input: PathBuf,
     output: Option<PathBuf>,
@@ -41,11 +43,7 @@ pub fn collect_inputs_outputs(
     } else if input.is_dir() {
         let in_files = collect_files_with_extension(&input, in_ext)?;
         if in_files.is_empty() {
-            bail!(
-                "no files with extension '.{}' found in '{}'",
-                in_ext,
-                input.display()
-            );
+            return Ok(Vec::new());
         }
 
         match output {

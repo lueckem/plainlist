@@ -25,6 +25,10 @@ pub struct ResolveArgs {
 
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     let in_out = collect_inputs_outputs(args.input, args.output, "plainlist", "m3u")?;
+    if in_out.is_empty() {
+        info!("No plainlists found.");
+        return Ok(());
+    }
 
     let lib_path = args.library;
     info!("Scanning library: '{}'", lib_path.display());

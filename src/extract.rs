@@ -34,7 +34,7 @@ pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
 
     match args.from {
         ExtractSource::M3U => extract_m3u(in_path, &out_path),
-        _ => anyhow::bail!("Not implemented yet!"),
+        // _ => anyhow::bail!("Not implemented yet!"),
     }
 }
 
