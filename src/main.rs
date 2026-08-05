@@ -14,6 +14,7 @@ mod logging;
 mod normalize;
 mod resolve;
 mod track;
+mod utils;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
