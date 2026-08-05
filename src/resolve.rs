@@ -1,16 +1,30 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
+use clap::Args;
 use tracing::info;
 
 use crate::{
-    ResolveArgs,
     library::{Library, QueryResult},
     track::{Track, read_tracks_from_plainlist, scan_dir},
 };
 
+#[derive(Args)]
+pub struct ResolveArgs {
+    input: PathBuf,
+
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    #[arg(short, long)]
+    library: PathBuf,
+
+    #[arg(long)]
+    portable: bool,
+}
+
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
-    let path = Path::new(&args.input);
+    let path = &args.input;
     info!("Parsing plainlist at {}...", path.display());
     let plainlist_tracks = read_tracks_from_plainlist(path)
         .with_context(|| format!("failed to parse plainlist file '{}'", path.display()))?;
@@ -20,9 +34,9 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
         plainlist_tracks.len()
     );
 
-    let lib_path = Path::new(args.library.as_str());
+    let lib_path = args.library;
     info!("Scanning {} for tracks...", lib_path.display());
-    let tracks = scan_dir(lib_path);
+    let tracks = scan_dir(&lib_path);
     info!("Found {} tracks", tracks.len());
     let library = Library::from_tracks(tracks);
 

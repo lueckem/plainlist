@@ -3,12 +3,30 @@ use std::{
     str::FromStr,
 };
 
+use clap::{Args, ValueEnum};
 use tracing::{debug, info};
 
-use crate::{ExtractArgs, ExtractSource, track::LocalTrack};
+use crate::track::LocalTrack;
+
+#[derive(Debug, Clone, ValueEnum)]
+enum ExtractSource {
+    M3U,
+    // Spotify,
+}
+
+#[derive(Args)]
+pub struct ExtractArgs {
+    input: PathBuf,
+
+    #[arg(value_enum, long)]
+    from: ExtractSource,
+
+    #[arg(short)]
+    output: Option<PathBuf>,
+}
 
 pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
-    let in_path = Path::new(&args.input);
+    let in_path = &args.input;
     let out_path = args
         .output
         .map(|s| PathBuf::from(s).with_extension("plainlist"))

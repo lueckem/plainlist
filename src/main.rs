@@ -1,8 +1,12 @@
 #![allow(dead_code)]
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 
-use crate::{extract::process_extract, logging::init_logging, resolve::process_resolve};
+use crate::{
+    extract::{ExtractArgs, process_extract},
+    logging::init_logging,
+    resolve::{ResolveArgs, process_resolve},
+};
 
 mod extract;
 mod library;
@@ -23,37 +27,6 @@ struct Cli {
 enum Commands {
     Resolve(ResolveArgs),
     Extract(ExtractArgs),
-}
-
-#[derive(Args)]
-struct ResolveArgs {
-    input: String,
-
-    #[arg(short)]
-    output: Option<String>,
-
-    #[arg(short, long)]
-    library: String,
-
-    #[arg(long)]
-    portable: bool,
-}
-
-#[derive(Debug, Clone, ValueEnum)]
-enum ExtractSource {
-    M3U,
-    // Spotify,
-}
-
-#[derive(Args)]
-struct ExtractArgs {
-    input: String,
-
-    #[arg(value_enum, long)]
-    from: ExtractSource,
-
-    #[arg(short)]
-    output: Option<String>,
 }
 
 fn main() -> anyhow::Result<()> {
