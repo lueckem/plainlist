@@ -6,7 +6,7 @@ use std::{
 use clap::{Args, ValueEnum};
 use tracing::{debug, info};
 
-use crate::track::LocalTrack;
+use crate::{track::LocalTrack, utils::collect_inputs_outputs};
 
 #[derive(Debug, Clone, ValueEnum)]
 enum ExtractSource {
@@ -26,16 +26,38 @@ pub struct ExtractArgs {
 }
 
 pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
-    let in_path = &args.input;
-    let out_path = args
-        .output
-        .map(|s| PathBuf::from(s).with_extension("plainlist"))
-        .unwrap_or_else(|| in_path.with_extension("plainlist"));
-
     match args.from {
-        ExtractSource::M3U => extract_m3u(in_path, &out_path),
-        // _ => anyhow::bail!("Not implemented yet!"),
+        ExtractSource::M3U => process_extract_m3u(args),
     }
+}
+
+fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
+    let input = args.input;
+    let output = args.output;
+    let mut in_out = collect_inputs_outputs(input.clone(), output.clone(), "m3u", "plainlist")?;
+    in_out.extend(collect_inputs_outputs(input, output, "m3u8", "plainlist")?);
+    if in_out.is_empty() {
+        info!("No m3u or m3u8 playlists found.");
+        return Ok(());
+    }
+
+    let mut k = 1;
+    let num_playlists = in_out.len();
+
+    for (i, o) in in_out {
+        info!(
+            "Extracting playlist [{}/{}]: {}",
+            k,
+            num_playlists,
+            i.file_name().unwrap().display()
+        );
+        k += 1;
+
+        // TODO: record if files are not found
+        extract_m3u(&i, &o)?;
+    }
+
+    Ok(())
 }
 
 fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
