@@ -13,6 +13,7 @@ pub fn init_logging() {
             .with_writer(std::io::stdout)
             .with_env_filter(EnvFilter::new("plainlist=info"))
             .with_target(false)
+            .without_time()
             .init();
     }
 }
