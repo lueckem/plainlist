@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::{Args, ValueEnum};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{track::LocalTrack, utils::collect_inputs_outputs};
 
@@ -53,8 +53,11 @@ fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
         );
         k += 1;
 
-        // TODO: record if files are not found
         extract_m3u(&i, &o)?;
+
+        if k < num_playlists + 1 {
+            println!("");
+        }
     }
 
     Ok(())
@@ -62,28 +65,41 @@ fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
 
 fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
     let content = std::fs::read_to_string(in_path)?;
+    let mut num_invalid = 0;
     let mut tracks = Vec::new();
     for (i, l) in content.lines().enumerate() {
         let l = l.trim();
-        if l.is_empty() {
+
+        // skip comments and empty lines
+        if l.starts_with('#') || l.is_empty() {
             continue;
         }
-        // TODO: deal with M3U comments
 
-        // TODO: instead of returning, log the error an continue
-        let track_path = PathBuf::from_str(l)?;
-        let lt = LocalTrack::read_from_file(track_path)?;
+        let Ok(track_path) = PathBuf::from_str(l);
+        let lt = match LocalTrack::read_from_file(track_path) {
+            Ok(lt) => lt,
+            Err(err) => {
+                warn!("Invalid track path in line {}: {:#}", i + 1, err);
+                num_invalid += 1;
+                continue;
+            }
+        };
         debug!("Read track at {}", lt.path.display());
         tracks.push(lt);
     }
 
     let mut content = String::new();
-    for lt in tracks {
+    for lt in tracks.iter() {
         content.push_str(&lt.track.to_string());
         content.push('\n');
     }
-    info!("Saving plainlist at {}", out_path.display());
     std::fs::write(out_path, content)?;
+    info!(
+        "Extracted {}/{} tracks",
+        tracks.len(),
+        tracks.len() + num_invalid
+    );
+    info!("Created plainlist '{}'", out_path.display());
 
     Ok(())
 }
