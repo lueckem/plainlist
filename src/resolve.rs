@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Args;
+use pathdiff::diff_paths;
 use tracing::{debug, error, info, warn};
 
 use crate::{
@@ -24,6 +25,8 @@ pub struct ResolveArgs {
 }
 
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
+    // TODO: make sure all combinations of absolute and relative input/output/library paths
+    // are handled correctly
     let in_out = collect_inputs_outputs(args.input, args.output, "plainlist", "m3u")?;
     if in_out.is_empty() {
         info!("No plainlists found.");
@@ -61,12 +64,19 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
             }
         };
 
-        let track_paths = resolve_plainlist(&plainlist_tracks, &library);
+        let mut track_paths = resolve_plainlist(&plainlist_tracks, &library);
         let num_resolved = track_paths.len();
         num_missing += plainlist_tracks.len() - num_resolved;
         info!("Matched {}/{} tracks", num_resolved, plainlist_tracks.len());
 
-        // TODO: portable
+        if args.portable {
+            // `o` always contains the filename, so this unwrap never fails
+            let o_dir = o.parent().unwrap();
+            track_paths = track_paths
+                .into_iter()
+                .map(|p| diff_paths(p, o_dir).unwrap())
+                .collect();
+        }
 
         write_playlist_m3u(&track_paths, &o)?;
         info!("Created playlist '{}'", o.display());
