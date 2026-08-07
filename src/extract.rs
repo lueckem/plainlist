@@ -6,7 +6,10 @@ use std::{
 use clap::{Args, ValueEnum};
 use tracing::{debug, info, warn};
 
-use crate::{track::LocalTrack, utils::collect_inputs_outputs};
+use crate::{
+    track::LocalTrack,
+    utils::{PlaylistType, collect_inputs_outputs},
+};
 
 #[derive(Debug, Clone, ValueEnum)]
 enum ExtractSource {
@@ -34,8 +37,12 @@ pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
 fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
     let input = args.input;
     let output = args.output;
-    let mut in_out = collect_inputs_outputs(input.clone(), output.clone(), "m3u", "plainlist")?;
-    in_out.extend(collect_inputs_outputs(input, output, "m3u8", "plainlist")?);
+    let in_out = collect_inputs_outputs(
+        input.clone(),
+        output.clone(),
+        &PlaylistType::M3U,
+        &PlaylistType::Plainlist,
+    )?;
     if in_out.is_empty() {
         info!("No m3u or m3u8 playlists found.");
         return Ok(());

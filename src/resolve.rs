@@ -7,7 +7,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     library::{Library, QueryResult},
     track::{Track, read_tracks_from_plainlist, scan_dir},
-    utils::{collect_inputs_outputs, write_playlist_m3u},
+    utils::{PlaylistType, collect_inputs_outputs, write_playlist_m3u},
 };
 
 #[derive(Args)]
@@ -27,7 +27,12 @@ pub struct ResolveArgs {
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     // TODO: make sure all combinations of absolute and relative input/output/library paths
     // are handled correctly
-    let in_out = collect_inputs_outputs(args.input, args.output, "plainlist", "m3u")?;
+    let in_out = collect_inputs_outputs(
+        args.input,
+        args.output,
+        &PlaylistType::Plainlist,
+        &PlaylistType::M3U,
+    )?;
     if in_out.is_empty() {
         info!("No plainlists found.");
         return Ok(());

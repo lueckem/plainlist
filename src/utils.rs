@@ -5,7 +5,27 @@ use std::{
 
 use anyhow::{Context, bail};
 
-/// Collect input paths and target output paths with given extensions for conversion.
+pub enum PlaylistType {
+    Plainlist,
+    M3U,
+}
+
+impl PlaylistType {
+    /// The file extensions that are associated to the type.
+    pub fn extensions(&self) -> Vec<&str> {
+        match self {
+            Self::Plainlist => vec!["plainlist"],
+            Self::M3U => vec!["m3u", "m3u8"],
+        }
+    }
+
+    /// The preferred file extension of the type.
+    pub fn main_extension(&self) -> &str {
+        self.extensions()[0]
+    }
+}
+
+/// Collect input paths and target output paths with given types for conversion.
 ///
 /// If `input` and `output` are files, the output path is just `output`.
 /// If `input` is a file and `output` is `None`, the output path is the input stem with`out_ext`.
@@ -18,12 +38,14 @@ use anyhow::{Context, bail};
 pub fn collect_inputs_outputs(
     input: PathBuf,
     output: Option<PathBuf>,
-    in_ext: &str,
-    out_ext: &str,
+    in_type: &PlaylistType,
+    out_type: &PlaylistType,
 ) -> anyhow::Result<Vec<(PathBuf, PathBuf)>> {
+    let out_ext = out_type.main_extension();
+
     // --- FILE ---
     if input.is_file() {
-        ensure_extension(&input, in_ext).context("wrong input file extension")?;
+        ensure_extension(&input, in_type).context("wrong input file extension")?;
 
         let out_file = match output {
             None => input.with_extension(out_ext),
@@ -31,7 +53,7 @@ pub fn collect_inputs_outputs(
                 if o.extension().is_none() {
                     o.with_extension(out_ext)
                 } else {
-                    ensure_extension(&o, out_ext).context("wrong output file extension")?;
+                    ensure_extension(&o, out_type).context("wrong output file extension")?;
                     o
                 }
             }
@@ -41,8 +63,9 @@ pub fn collect_inputs_outputs(
 
     // --- DIRECTORY ---
     } else if input.is_dir() {
-        let in_files = collect_files_with_extension(&input, in_ext)?;
+        let in_files = collect_files_with_ptype(&input, in_type)?;
         if in_files.is_empty() {
+            // TODO: should this error on empty?
             return Ok(Vec::new());
         }
 
@@ -81,19 +104,20 @@ pub fn collect_inputs_outputs(
     bail!("input path '{}' does not exist", input.display())
 }
 
-fn ensure_extension(path: &Path, ext: &str) -> anyhow::Result<()> {
+fn ensure_extension(path: &Path, ptype: &PlaylistType) -> anyhow::Result<()> {
     match path.extension() {
-        Some(e) if e == ext => Ok(()),
+        Some(e) if ptype.extensions().iter().any(|v| *v == e) => Ok(()),
         _ => bail!(
             "file '{}' does not have a '.{}' extension",
             path.display(),
-            ext
+            ptype.main_extension(),
         ),
     }
 }
 
-/// Returns all files inside `dir` that have the given extension (not recursive).
-fn collect_files_with_extension(dir: &Path, ext: &str) -> anyhow::Result<Vec<PathBuf>> {
+/// Returns all files inside `dir` that have a valid extension for the PlaylistType (not recursive).
+fn collect_files_with_ptype(dir: &Path, ptype: &PlaylistType) -> anyhow::Result<Vec<PathBuf>> {
+    let valid_extensions = ptype.extensions();
     let mut files = Vec::new();
 
     for entry in fs::read_dir(dir)
@@ -101,7 +125,11 @@ fn collect_files_with_extension(dir: &Path, ext: &str) -> anyhow::Result<Vec<Pat
     {
         let entry = entry?;
         let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|e| e == ext) {
+        if path.is_file()
+            && path
+                .extension()
+                .is_some_and(|e| valid_extensions.iter().any(|v| *v == e))
+        {
             files.push(path);
         }
     }
