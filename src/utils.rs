@@ -53,6 +53,7 @@ pub fn collect_inputs_outputs(
                 if o.extension().is_none() {
                     o.with_extension(out_ext)
                 } else {
+                    // TODO: Deal with the case that input is a file and output a dir
                     ensure_extension(&o, out_type).context("wrong output file extension")?;
                     o
                 }

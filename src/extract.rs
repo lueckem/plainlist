@@ -71,6 +71,9 @@ fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
 }
 
 fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
+    // in_path is a file, so this never fails
+    let in_dir = in_path.parent().unwrap();
+
     let content = std::fs::read_to_string(in_path)?;
     let mut num_invalid = 0;
     let mut tracks = Vec::new();
@@ -82,7 +85,11 @@ fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
             continue;
         }
 
-        let Ok(track_path) = PathBuf::from_str(l);
+        let Ok(mut track_path) = PathBuf::from_str(l);
+        if track_path.is_relative() {
+            track_path = in_dir.join(track_path);
+        }
+
         let lt = match LocalTrack::read_from_file(track_path) {
             Ok(lt) => lt,
             Err(err) => {
