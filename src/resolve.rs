@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::Args;
 use tracing::{debug, error, info, warn};
@@ -6,7 +6,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     library::{Library, QueryResult},
     track::{Track, read_tracks_from_plainlist, scan_dir},
-    utils::collect_inputs_outputs,
+    utils::{collect_inputs_outputs, write_playlist_m3u},
 };
 
 #[derive(Args)]
@@ -61,9 +61,14 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
             }
         };
 
-        let num_resolved = resolve_plainlist(&plainlist_tracks, &library, &o)?;
+        let track_paths = resolve_plainlist(&plainlist_tracks, &library);
+        let num_resolved = track_paths.len();
         num_missing += plainlist_tracks.len() - num_resolved;
         info!("Matched {}/{} tracks", num_resolved, plainlist_tracks.len());
+
+        // TODO: portable
+
+        write_playlist_m3u(&track_paths, &o)?;
         info!("Created playlist '{}'", o.display());
         num_playlists += 1;
     }
@@ -78,13 +83,9 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn resolve_plainlist(
-    plainlist_tracks: &[Track],
-    library: &Library,
-    out_path: &Path,
-) -> anyhow::Result<usize> {
-    let mut num_resolved = 0;
-    let mut content = String::new();
+/// Resolve the `plainlist_tracks` against the `library` and return the paths of the matched tracks.
+fn resolve_plainlist(plainlist_tracks: &[Track], library: &Library) -> Vec<PathBuf> {
+    let mut paths = Vec::with_capacity(plainlist_tracks.len());
     for t in plainlist_tracks {
         let track_path = match library.query(&t) {
             QueryResult::NotFound => {
@@ -109,11 +110,8 @@ fn resolve_plainlist(
                 &lts[0].path
             }
         };
-        content.push_str(&track_path.to_string_lossy().into_owned());
-        content.push('\n');
-        num_resolved += 1;
+        paths.push(track_path.clone());
     }
 
-    std::fs::write(out_path, content)?;
-    Ok(num_resolved)
+    paths
 }

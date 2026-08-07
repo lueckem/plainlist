@@ -109,3 +109,18 @@ fn collect_files_with_extension(dir: &Path, ext: &str) -> anyhow::Result<Vec<Pat
     files.sort();
     Ok(files)
 }
+
+/// Writes the `track_paths` to disk at `out_path`.
+pub fn write_playlist_m3u<T, P>(track_paths: &[T], out_path: P) -> anyhow::Result<()>
+where
+    T: AsRef<Path>,
+    P: AsRef<Path>,
+{
+    let mut content = String::new();
+    for t in track_paths {
+        content.push_str(&t.as_ref().to_string_lossy());
+        content.push('\n');
+    }
+    std::fs::write(out_path, content)?;
+    Ok(())
+}
