@@ -2,10 +2,12 @@ use std::{
     fs,
     path::{Path, PathBuf, absolute},
     str::FromStr,
+    sync::LazyLock,
 };
 
 use anyhow::Context;
 use clap::{Args, ValueEnum};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
@@ -51,7 +53,7 @@ pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
         anyhow::bail!("could not determine input type");
     };
 
-    // TODO: determine extr_source for each input output pair, not globally for all
+    // TODO: determine extr_source for each input output pair, not globally for all?
 
     match extr_source {
         ExtractSource::M3U => process_extract_m3u(args),
@@ -217,9 +219,23 @@ struct SpotifyTrack {
 
 impl From<SpotifyTrack> for Track {
     fn from(value: SpotifyTrack) -> Self {
-        // TODO: Spotify typically stores only the main artist in `artist_name`
-        // and the other artists in the `track_name` as "(feat. ...)"
+        // Spotify typically stores only the main artist in `artist_name`
+        // and the other artist in the `track_name` as "(feat. ...)"
+        static RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^(?P<title>.+?)\s*\(feat\.\s*(?P<artist>[^)]+)\)\s*$").unwrap()
+        });
+        let caps = RE.captures(&value.track_name);
 
-        Track::new(value.track_name, vec![value.artist_name])
+        let (title, artists) = match caps {
+            None => (value.track_name, vec![value.artist_name]),
+            Some(c) => {
+                let t = c["title"].trim().to_string();
+                let a = vec![value.artist_name, c["artist"].trim().to_string()];
+                debug!("{} -- {} ==> {:?} -- {}", a[0], value.track_name, a, t);
+                (t, a)
+            }
+        };
+
+        Track::new(title, artists)
     }
 }
