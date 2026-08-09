@@ -1,5 +1,6 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, absolute};
 
+use anyhow::Context;
 use clap::Args;
 use pathdiff::diff_paths;
 use tracing::{debug, error, info, warn};
@@ -27,30 +28,40 @@ pub struct ResolveArgs {
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     // TODO: make sure all combinations of absolute and relative input/output/library paths
     // are handled correctly
-    let in_out = collect_inputs_outputs(
-        args.input,
-        args.output,
+
+    // make all paths absolute
+    let in_path = absolute(args.input)?;
+    let out_path = args.output.map(|p| absolute(p)).transpose()?;
+    let lib_path = args.library.canonicalize().context("invalid library")?;
+
+    let in_out_paths = collect_inputs_outputs(
+        in_path,
+        out_path,
         &PlaylistType::Plainlist,
         &PlaylistType::M3U,
     )?;
-    if in_out.is_empty() {
+    if in_out_paths.is_empty() {
         info!("No plainlists found.");
         return Ok(());
     }
 
-    let lib_path = args.library;
     info!("Scanning library: '{}'", lib_path.display());
     let tracks = scan_dir(&lib_path);
-    info!("Library scan complete (found {} tracks)", tracks.len());
+    if tracks.is_empty() {
+        error!("No tracks found in library");
+        return Ok(());
+    } else {
+        info!("Library scan complete (found {} tracks)", tracks.len());
+    }
     let library = Library::from_tracks(tracks);
 
     let mut k = 1;
-    let num_plainlists = in_out.len();
+    let num_plainlists = in_out_paths.len();
     let mut num_parse_errors = 0;
     let mut num_playlists = 0;
     let mut num_missing = 0;
 
-    for (i, o) in in_out {
+    for (i, o) in in_out_paths {
         println!();
         info!(
             "Resolving plainlist [{}/{}]: {}",

@@ -96,7 +96,7 @@ pub fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<
 #[derive(Debug, Clone)]
 pub struct LocalTrack {
     pub track: Track,
-    pub path: PathBuf, // TODO: Enforce this always absolute path?
+    pub path: PathBuf,
 }
 
 impl LocalTrack {

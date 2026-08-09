@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::{Path, PathBuf, absolute},
     str::FromStr,
 };
 
@@ -35,11 +35,11 @@ pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
 }
 
 fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
-    let input = args.input;
-    let output = args.output;
+    let in_path = absolute(args.input)?;
+    let out_path = args.output.map(|p| absolute(p)).transpose()?;
     let in_out = collect_inputs_outputs(
-        input.clone(),
-        output.clone(),
+        in_path,
+        out_path,
         &PlaylistType::M3U,
         &PlaylistType::Plainlist,
     )?;
