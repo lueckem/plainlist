@@ -26,9 +26,6 @@ pub struct ResolveArgs {
 }
 
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
-    // TODO: make sure all combinations of absolute and relative input/output/library paths
-    // are handled correctly
-
     // make all paths absolute
     let in_path = absolute(args.input)?;
     let out_path = args.output.map(|p| absolute(p)).transpose()?;

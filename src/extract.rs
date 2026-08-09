@@ -17,19 +17,40 @@ enum ExtractSource {
     // Spotify,
 }
 
+impl ExtractSource {
+    fn guess_from_path(p: &Path) -> Option<Self> {
+        let ext = p.extension()?.to_ascii_lowercase();
+        if ext == "m3u" || ext == "m3u8" {
+            return Some(Self::M3U);
+        }
+
+        None
+    }
+}
+
 #[derive(Args)]
 pub struct ExtractArgs {
     input: PathBuf,
 
     #[arg(value_enum, long)]
-    from: ExtractSource,
+    from: Option<ExtractSource>,
 
     #[arg(short)]
     output: Option<PathBuf>,
 }
 
 pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
-    match args.from {
+    let Some(extr_source) = args
+        .from
+        .clone()
+        .or_else(|| ExtractSource::guess_from_path(&args.input))
+    else {
+        anyhow::bail!("could not determine input type");
+    };
+
+    // TODO: determine extr_source for each input output pair, not globally for all
+
+    match extr_source {
         ExtractSource::M3U => process_extract_m3u(args),
     }
 }
