@@ -50,10 +50,11 @@ pub fn collect_inputs_outputs(
         let out_file = match output {
             None => input.with_extension(out_ext),
             Some(o) => {
-                if o.extension().is_none() {
+                if o.is_dir() {
+                    o.join(input.file_stem().unwrap()).with_extension(out_ext)
+                } else if o.extension().is_none() {
                     o.with_extension(out_ext)
                 } else {
-                    // TODO: Deal with the case that input is a file and output a dir
                     ensure_extension(&o, out_type).context("wrong output file extension")?;
                     o
                 }
@@ -66,7 +67,6 @@ pub fn collect_inputs_outputs(
     } else if input.is_dir() {
         let in_files = collect_files_with_ptype(&input, in_type)?;
         if in_files.is_empty() {
-            // TODO: should this error on empty?
             return Ok(Vec::new());
         }
 
