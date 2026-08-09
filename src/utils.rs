@@ -5,6 +5,8 @@ use std::{
 
 use anyhow::{Context, bail};
 
+use crate::track::Track;
+
 pub enum PlaylistType {
     Plainlist,
     M3U,
@@ -148,6 +150,20 @@ where
     let mut content = String::new();
     for t in track_paths {
         content.push_str(&t.as_ref().to_string_lossy());
+        content.push('\n');
+    }
+    std::fs::write(out_path, content)?;
+    Ok(())
+}
+
+/// Writes the `tracks` to disk at `out_path`.
+pub fn write_plainlist<P>(tracks: &[Track], out_path: P) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
+    let mut content = String::new();
+    for t in tracks {
+        content.push_str(&t.to_string());
         content.push('\n');
     }
     std::fs::write(out_path, content)?;

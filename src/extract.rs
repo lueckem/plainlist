@@ -4,13 +4,14 @@ use std::{
     str::FromStr,
 };
 
+use anyhow::Context;
 use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 use crate::{
     track::{LocalTrack, Track},
-    utils::{PlaylistType, collect_inputs_outputs},
+    utils::{PlaylistType, collect_inputs_outputs, write_plainlist},
 };
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -143,9 +144,28 @@ fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
 }
 
 fn process_extract_spotify(args: ExtractArgs) -> anyhow::Result<()> {
+    if !args.input.is_file() {
+        anyhow::bail!("input has to be a '.json' file");
+    }
+    let out_path = match args.output {
+        None => args.input.parent().unwrap().to_path_buf(),
+        Some(p) => {
+            if p.exists() && !p.is_dir() {
+                anyhow::bail!(
+                    "output '{}' already exists and is not a directory",
+                    p.display()
+                );
+            }
+            fs::create_dir_all(&p)
+                .with_context(|| format!("failed to create output directory '{}'", p.display()))?;
+            p
+        }
+    };
+
     info!("Parsing '{}'", &args.input.display());
     let contents = fs::read_to_string(&args.input)?;
-    let playlists: SpotifyPlaylists = serde_json::from_str(&contents)?;
+    let playlists: SpotifyPlaylists =
+        serde_json::from_str(&contents).context("failed to parse file as Spotify JSON export")?;
     let playlists = playlists.playlists;
     info!("Parsed {} playlists", playlists.len());
 
@@ -158,9 +178,16 @@ fn process_extract_spotify(args: ExtractArgs) -> anyhow::Result<()> {
             playlist.name
         );
 
-        // TODO:
+        let tracks: Vec<Track> = playlist
+            .items
+            .iter()
+            .map(|item| item.track.clone().into())
+            .collect();
+        info!("Extracted {} tracks", tracks.len());
 
-        // let tracks = playlist.items.iter().map(|item| Track::new(gcc, artists))
+        let o = out_path.join(&playlist.name).with_extension("plainlist");
+        write_plainlist(&tracks, &o)?;
+        info!("Created plainlist '{}'", o.display());
     }
     Ok(())
 }
@@ -181,7 +208,7 @@ struct SpotifyItem {
     track: SpotifyTrack,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct SpotifyTrack {
     track_name: String,
@@ -190,8 +217,9 @@ struct SpotifyTrack {
 
 impl From<SpotifyTrack> for Track {
     fn from(value: SpotifyTrack) -> Self {
-        // Spotify typically stores only the main artist in `artist_name`
+        // TODO: Spotify typically stores only the main artist in `artist_name`
         // and the other artists in the `track_name` as "(feat. ...)"
-        todo!()
+
+        Track::new(value.track_name, vec![value.artist_name])
     }
 }
