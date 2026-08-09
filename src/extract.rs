@@ -1,20 +1,22 @@
 use std::{
+    fs,
     path::{Path, PathBuf, absolute},
     str::FromStr,
 };
 
 use clap::{Args, ValueEnum};
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 use crate::{
-    track::LocalTrack,
+    track::{LocalTrack, Track},
     utils::{PlaylistType, collect_inputs_outputs},
 };
 
 #[derive(Debug, Clone, ValueEnum)]
 enum ExtractSource {
     M3U,
-    // Spotify,
+    Spotify,
 }
 
 impl ExtractSource {
@@ -52,6 +54,7 @@ pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
 
     match extr_source {
         ExtractSource::M3U => process_extract_m3u(args),
+        ExtractSource::Spotify => process_extract_spotify(args),
     }
 }
 
@@ -137,4 +140,58 @@ fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
     info!("Created plainlist '{}'", out_path.display());
 
     Ok(())
+}
+
+fn process_extract_spotify(args: ExtractArgs) -> anyhow::Result<()> {
+    info!("Parsing '{}'", &args.input.display());
+    let contents = fs::read_to_string(&args.input)?;
+    let playlists: SpotifyPlaylists = serde_json::from_str(&contents)?;
+    let playlists = playlists.playlists;
+    info!("Parsed {} playlists", playlists.len());
+
+    for (i, playlist) in playlists.iter().enumerate() {
+        println!("");
+        info!(
+            "Extracting playlist [{}/{}]: '{}'",
+            i + 1,
+            playlists.len(),
+            playlist.name
+        );
+
+        // TODO:
+
+        // let tracks = playlist.items.iter().map(|item| Track::new(gcc, artists))
+    }
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct SpotifyPlaylists {
+    playlists: Vec<SpotifyPlaylist>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct SpotifyPlaylist {
+    name: String,
+    items: Vec<SpotifyItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct SpotifyItem {
+    track: SpotifyTrack,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct SpotifyTrack {
+    track_name: String,
+    artist_name: String,
+}
+
+impl From<SpotifyTrack> for Track {
+    fn from(value: SpotifyTrack) -> Self {
+        // Spotify typically stores only the main artist in `artist_name`
+        // and the other artists in the `track_name` as "(feat. ...)"
+        todo!()
+    }
 }
