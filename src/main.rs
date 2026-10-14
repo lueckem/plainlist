@@ -28,6 +28,13 @@ struct Cli {
 enum Commands {
     Resolve(ResolveArgs),
     Extract(ExtractArgs),
+    // TODO: add `append` command, e.g.
+    // `plainlist append --library ~/Music --artist Sabaton --album "Primo Victoria" new.plainlist`.
+    // - add album and track_number to `Track`
+    // - `scan_dir` -> `Vec<LocalTrack>`
+    // - filter the artist/album in the vector
+    // - sort remaining results first by album, then by track_number
+    // - append to plainlist
 }
 
 fn main() -> anyhow::Result<()> {
