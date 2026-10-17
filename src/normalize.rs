@@ -31,6 +31,20 @@ impl NormalizedArtist {
     }
 }
 
+/// Normalized album name
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NormalizedAlbum(String);
+
+impl NormalizedAlbum {
+    pub fn new(s: &str) -> Self {
+        Self(normalize_str(s))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Normalize the string by removing non-alphanumeric characters, tansforming to lower case,
 /// and decomposing unicode (e.g., é to e).
 ///
