@@ -96,13 +96,29 @@ pub fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<
 #[derive(Debug, Clone)]
 pub struct LocalTrack {
     pub track: Track,
+    pub album: Option<String>,
+    pub disc: Option<u32>,
+    pub number: Option<u32>,
     pub path: PathBuf,
 }
 
 impl LocalTrack {
-    pub fn new(title: String, artists: Vec<String>, path: PathBuf) -> Self {
+    pub fn new(
+        title: String,
+        artists: Vec<String>,
+        album: Option<String>,
+        disc: Option<u32>,
+        number: Option<u32>,
+        path: PathBuf,
+    ) -> Self {
         let track = Track::new(title, artists);
-        Self { track, path }
+        Self {
+            track,
+            album,
+            disc,
+            number,
+            path,
+        }
     }
 
     pub fn read_from_file(path: PathBuf) -> anyhow::Result<Self> {
@@ -122,7 +138,14 @@ impl LocalTrack {
         let artists = read_artists(tag)
             .with_context(|| format!("failed to get artists for {}", path.display()))?;
 
-        Ok(Self::new(title, artists, path))
+        let album = tag
+            .album()
+            .map(|a| a.trim().to_owned())
+            .filter(|a| !a.is_empty());
+        let disc = tag.disk();
+        let number = tag.track();
+
+        Ok(Self::new(title, artists, album, disc, number, path))
     }
 }
 
