@@ -8,6 +8,7 @@ use crate::{
     resolve::{ResolveArgs, process_resolve},
 };
 
+mod append;
 mod extract;
 mod library;
 mod logging;
