@@ -28,6 +28,14 @@ plainlist extract --from m3u -o favorite_songs.plainlist favorite_songs.m3u
 plainlist extract --from spotify -o ~/Music/playlists ~/Downloads/spotify_export.json
 ```
 
+### Append
+Appends tracks from the library to an existing plainlist.
+
+Example:
+```
+plainlist append --library ~/Music --artist Beatles --album "Help!" favorites.plainlist
+```
+
 ## Format Specification
 
 - Each line contains one track (except comment lines starting with `#` and empty lines)
@@ -41,6 +49,7 @@ plainlist extract --from spotify -o ~/Music/playlists ~/Downloads/spotify_export
 - Commands: 
   - `resolve` in `src/resolve.rs`
   - `extract` in `src/extract.rs`
+  - `append` in `src/append.rs`
 - Modules:
   - `library.rs`: Library scanning and track matching
   - `normalize.rs`: Track and artist string normalization for matching

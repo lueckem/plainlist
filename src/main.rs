@@ -3,6 +3,7 @@
 use clap::{Parser, Subcommand};
 
 use crate::{
+    append::{AppendArgs, process_append},
     extract::{ExtractArgs, process_extract},
     logging::init_logging,
     resolve::{ResolveArgs, process_resolve},
@@ -29,13 +30,7 @@ struct Cli {
 enum Commands {
     Resolve(ResolveArgs),
     Extract(ExtractArgs),
-    // TODO: add `append` command, e.g.
-    // `plainlist append --library ~/Music --artist Sabaton --album "Primo Victoria" new.plainlist`.
-    // - add album and track_number to `Track`
-    // - `scan_dir` -> `Vec<LocalTrack>`
-    // - filter the artist/album in the vector
-    // - sort remaining results first by album, then by track_number
-    // - append to plainlist
+    Append(AppendArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -46,5 +41,6 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Resolve(args) => process_resolve(args),
         Commands::Extract(args) => process_extract(args),
+        Commands::Append(args) => process_append(args),
     }
 }
