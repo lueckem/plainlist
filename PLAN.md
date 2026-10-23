@@ -1,29 +1,6 @@
 # Implementation Plan
 
-## 1. Replace unwrap() calls with proper error handling in resolve.rs
-
-### Problem
-In `src/resolve.rs`, lines 87-88 use `unwrap()` on `o.parent()` which can cause panic if path has no parent.
-
-### Solution
-Replace with proper error handling:
-
-```rust
-// Before:
-let o_dir = o.parent().unwrap();
-
-// After:
-let o_dir = o.parent()
-    .context("Failed to get output directory")?;
-```
-
-### Steps
-1. Locate lines 87-88 in `src/resolve.rs`
-2. Replace `o.parent().unwrap()` with proper error handling using `?` operator
-3. Update function signature to return `anyhow::Result<()>`
-4. Test that the change doesn't break existing functionality
-
-## 2. Add documentation comments to public APIs
+## 1. Add documentation comments to public APIs
 
 ### Problem
 Public functions and structs lack documentation comments explaining their purpose and usage.
@@ -50,24 +27,13 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
 ### Steps
 1. Add documentation to all public structs in `src/resolve.rs`
 2. Add documentation to all public functions in `src/extract.rs`  
-3. Add documentation to all public structs and functions in `src/library.rs`
-4. Add documentation to all public structs and functions in `src/track.rs`
-5. Add documentation to all public structs and functions in `src/utils.rs`
-6. Add module-level documentation where missing
+3. Add documentation to all public functions in `src/append.rs`  
+4. Add documentation to all public structs and functions in `src/library.rs`
+5. Add documentation to all public structs and functions in `src/track.rs`
+6. Add documentation to all public structs and functions in `src/utils.rs`
+7. Add module-level documentation where missing
 
-## 3. Implement or remove TODO comments for append command
-
-### Problem
-TODO comment in `src/main.rs` references an unimplemented append command.
-
-### Solution
-Either implement the feature or remove the TODO if it's not planned.
-
-### Steps
-1. Remove the TODO comment from `src/main.rs` since we're keeping focus on current functionality
-2. Alternatively, if implementing, create the append command structure
-
-## 4. Add comprehensive unit tests for core logic
+## 2. Add comprehensive unit tests for core logic
 
 ### Problem
 While there are some tests in `src/track.rs`, core library matching logic lacks comprehensive testing.
@@ -84,7 +50,7 @@ Add extensive unit tests for:
 3. Add integration tests for full resolve flow
 4. Add test coverage for error paths in track parsing
 
-## 5. Improve error handling consistency
+## 3. Improve error handling consistency
 
 ### Problem
 Inconsistent use of error handling patterns throughout the codebase.

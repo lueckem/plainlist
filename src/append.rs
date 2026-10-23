@@ -41,6 +41,7 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
 
     let tracks: Vec<_> = tracks.into_iter().map(|lt| lt.track).collect();
 
+    // TODO: check if args.input is a valid plainlist?
     write_plainlist(&tracks, &args.input, true)
         .with_context(|| format!("failed to write to plainlist '{}'", args.input.display()))?;
     info!("Appended matching tracks to '{}'", args.input.display());
