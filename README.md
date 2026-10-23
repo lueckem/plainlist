@@ -28,11 +28,18 @@ Use the `--portable` flag to use relative paths in the m3u playlists instead of 
 
 Extract a plainlist from a different format.
 
-Example: `plainlist extract --from m3u -o favorite_songs.plainlist favorite_songs.m3u` reads the files in the m3u playlist and creates the matching plainlist.
+Example: `plainlist extract --from m3u -o favorites.plainlist favorites.m3u` reads the files in the m3u playlist and creates the matching plainlist.
 
 Supported source formats:
 - `--from m3u`
 - `--from spotify` (spotify export JSON format)
+
+
+### Append
+
+Append tracks from the library to an existing plainlist.
+
+Example: `plainlist append --library ~/Music --artist Beatles --album "Help!" favorites.plainlist` finds all tracks with matching artist and album from the library and appends them to the plainlist.
 
 
 ## Why use plainlists?
