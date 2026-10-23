@@ -33,10 +33,8 @@ pub struct AppendArgs {
 /// This function scans the music library and appends matching tracks (filtered by artist, album)
 /// to an existing plainlist file.
 pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
-    // Abort if both artist and album are None
-    if args.artist.is_none() && args.album.is_none() {
-        anyhow::bail!("Either --artist or --album must be specified");
-    }
+    // TODO: ask user confirmation if both artist and album are None
+    // (the whole library will be added)
 
     let mut tracks = scan_and_filter_tracks(&args)?;
     if tracks.is_empty() {

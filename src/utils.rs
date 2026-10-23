@@ -183,7 +183,6 @@ where
         .write(true)
         .append(append)
         .open(out_path)?;
-    // TODO: when appending, do I have to add a '\n' first if it does not end with one?
     file.write_all(content.as_ref())?;
     Ok(())
 }
