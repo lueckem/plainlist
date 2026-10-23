@@ -7,6 +7,7 @@ use tracing::info;
 use crate::{
     normalize::{NormalizedAlbum, NormalizedArtist},
     track::{LocalTrack, scan_dir},
+    utils::write_plainlist,
 };
 
 #[derive(Args)]
@@ -34,17 +35,15 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
         info!("No matching tracks found");
         return Ok(());
     }
-    info!("Found {} matching tracks", tracks.len(),);
+    info!("Found {} matching tracks", tracks.len());
 
     sort_tracks(&mut tracks);
 
-    let mut existing_content = read_existing_content(&args)?;
-    append_tracks_to_content(&mut existing_content, &tracks)?;
+    let tracks: Vec<_> = tracks.into_iter().map(|lt| lt.track).collect();
 
-    std::fs::write(&args.input, existing_content)
+    write_plainlist(&tracks, &args.input, true)
         .with_context(|| format!("failed to write to plainlist '{}'", args.input.display()))?;
     info!("Appended matching tracks to '{}'", args.input.display());
-
     Ok(())
 }
 
@@ -110,33 +109,4 @@ fn sort_tracks(tracks: &mut Vec<LocalTrack>) {
             (None, None) => std::cmp::Ordering::Equal,
         }
     });
-}
-
-/// Reads existing content from the plainlist file
-fn read_existing_content(args: &AppendArgs) -> anyhow::Result<String> {
-    let mut existing_content = String::new();
-    if args.input.exists() {
-        existing_content = std::fs::read_to_string(&args.input)
-            .with_context(|| format!("failed to read plainlist '{}'", args.input.display()))?;
-    }
-    Ok(existing_content)
-}
-
-/// Appends tracks to existing content with proper formatting
-fn append_tracks_to_content(
-    existing_content: &mut String,
-    tracks: &[LocalTrack],
-) -> anyhow::Result<()> {
-    // Add a newline if the existing content doesn't end with one
-    if !existing_content.is_empty() && !existing_content.ends_with('\n') {
-        existing_content.push('\n');
-    }
-
-    // Append new tracks
-    for track in tracks {
-        existing_content.push_str(&track.track.to_string());
-        existing_content.push('\n');
-    }
-
-    Ok(())
 }
