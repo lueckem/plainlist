@@ -188,7 +188,7 @@ fn process_extract_spotify(args: ExtractArgs) -> anyhow::Result<()> {
         info!("Extracted {} tracks", tracks.len());
 
         let o = out_path.join(&playlist.name).with_extension("plainlist");
-        write_plainlist(&tracks, &o)?;
+        write_plainlist(&tracks, &o, false)?;
         info!("Created plainlist '{}'", o.display());
     }
     Ok(())

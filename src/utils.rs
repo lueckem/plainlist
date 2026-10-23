@@ -1,5 +1,6 @@
 use std::{
-    fs,
+    fs::{self, OpenOptions},
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -157,7 +158,7 @@ where
 }
 
 /// Writes the `tracks` to disk at `out_path`.
-pub fn write_plainlist<P>(tracks: &[Track], out_path: P) -> anyhow::Result<()>
+pub fn write_plainlist<P>(tracks: &[Track], out_path: P, append: bool) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
 {
@@ -166,6 +167,13 @@ where
         content.push_str(&t.to_string());
         content.push('\n');
     }
-    std::fs::write(out_path, content)?;
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(append)
+        .open(out_path)?;
+    // TODO: when appending, do I have to add a '\n' first if it does not end with one?
+    file.write_all(content.as_ref())?;
     Ok(())
 }
