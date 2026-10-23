@@ -6,7 +6,7 @@ use tracing::info;
 
 use crate::{
     normalize::{NormalizedAlbum, NormalizedArtist},
-    track::scan_dir,
+    track::{LocalTrack, scan_dir},
 };
 
 #[derive(Args)]
@@ -24,19 +24,39 @@ pub struct AppendArgs {
 }
 
 pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
-    let lib_path = args.library.canonicalize().context("invalid library")?;
-
     // Abort if both artist and album are None
     if args.artist.is_none() && args.album.is_none() {
         anyhow::bail!("Either --artist or --album must be specified");
     }
 
+    let mut tracks = scan_and_filter_tracks(&args)?;
+    if tracks.is_empty() {
+        info!("No matching tracks found");
+        return Ok(());
+    }
+    info!("Found {} matching tracks", tracks.len(),);
+
+    sort_tracks(&mut tracks);
+
+    let mut existing_content = read_existing_content(&args)?;
+    append_tracks_to_content(&mut existing_content, &tracks)?;
+
+    std::fs::write(&args.input, existing_content)
+        .with_context(|| format!("failed to write to plainlist '{}'", args.input.display()))?;
+    info!("Appended matching tracks to '{}'", args.input.display());
+
+    Ok(())
+}
+
+/// Scans the music library and filters tracks based on artist or album criteria
+fn scan_and_filter_tracks(args: &AppendArgs) -> anyhow::Result<Vec<LocalTrack>> {
+    let lib_path = args.library.canonicalize().context("invalid library")?;
     info!("Scanning library: '{}'", lib_path.display());
     let mut tracks = scan_dir(&lib_path);
 
     // filter album
-    if let Some(album) = args.album {
-        let norm_album = NormalizedAlbum::new(&album);
+    if let Some(album) = &args.album {
+        let norm_album = NormalizedAlbum::new(album);
         tracks = tracks
             .into_iter()
             .filter(|lt| {
@@ -50,8 +70,8 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
     }
 
     // filter artist
-    if let Some(artist) = args.artist {
-        let norm_artist = NormalizedArtist::new(&artist);
+    if let Some(artist) = &args.artist {
+        let norm_artist = NormalizedArtist::new(artist);
         tracks = tracks
             .into_iter()
             .filter(|lt| {
@@ -64,7 +84,11 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
             .collect();
     }
 
-    // Sort remaining tracks first by album, then by track_number
+    Ok(tracks)
+}
+
+/// Sorts tracks by album first, then by track number
+fn sort_tracks(tracks: &mut Vec<LocalTrack>) {
     tracks.sort_by(|a, b| {
         // Compare albums first
         match (&a.album, &b.album) {
@@ -86,34 +110,33 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
             (None, None) => std::cmp::Ordering::Equal,
         }
     });
+}
 
-    if tracks.is_empty() {
-        info!("No matching tracks found");
-        return Ok(());
-    }
-    info!("Found {} matching tracks", tracks.len(),);
-
-    // Read existing content and append new tracks
+/// Reads existing content from the plainlist file
+fn read_existing_content(args: &AppendArgs) -> anyhow::Result<String> {
     let mut existing_content = String::new();
     if args.input.exists() {
         existing_content = std::fs::read_to_string(&args.input)
             .with_context(|| format!("failed to read plainlist '{}'", args.input.display()))?;
     }
+    Ok(existing_content)
+}
 
+/// Appends tracks to existing content with proper formatting
+fn append_tracks_to_content(
+    existing_content: &mut String,
+    tracks: &[LocalTrack],
+) -> anyhow::Result<()> {
     // Add a newline if the existing content doesn't end with one
     if !existing_content.is_empty() && !existing_content.ends_with('\n') {
         existing_content.push('\n');
     }
 
     // Append new tracks
-    for track in &tracks {
+    for track in tracks {
         existing_content.push_str(&track.track.to_string());
         existing_content.push('\n');
     }
-
-    std::fs::write(&args.input, existing_content)
-        .with_context(|| format!("failed to write to plainlist '{}'", args.input.display()))?;
-    info!("Appended matching tracks to '{}'", args.input.display());
 
     Ok(())
 }
