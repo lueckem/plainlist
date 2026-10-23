@@ -86,27 +86,28 @@ fn scan_and_filter_tracks(args: &AppendArgs) -> anyhow::Result<Vec<LocalTrack>> 
     Ok(tracks)
 }
 
-/// Sorts tracks by album first, then by track number
+/// Sorts tracks by album first, then by track number.
+/// Tracks without album or track number are sorted by title.
 fn sort_tracks(tracks: &mut Vec<LocalTrack>) {
     tracks.sort_by(|a, b| {
         // Compare albums first
         match (&a.album, &b.album) {
             (Some(album_a), Some(album_b)) => {
-                let cmp = album_a.cmp(album_b);
+                let cmp = album_a.to_lowercase().cmp(&album_b.to_lowercase());
                 if cmp != std::cmp::Ordering::Equal {
                     return cmp;
                 }
             }
             (None, Some(_)) => return std::cmp::Ordering::Greater,
             (Some(_), None) => return std::cmp::Ordering::Less,
-            (None, None) => {}
+            (None, None) => return a.track.title.cmp(&b.track.title),
         }
-        // If albums are equal or both None, compare track numbers
+        // If albums are equal, compare track numbers
         match (&a.number, &b.number) {
             (Some(num_a), Some(num_b)) => num_a.cmp(num_b),
             (None, Some(_)) => std::cmp::Ordering::Greater,
             (Some(_), None) => std::cmp::Ordering::Less,
-            (None, None) => std::cmp::Ordering::Equal,
+            (None, None) => a.track.title.cmp(&b.track.title),
         }
     });
 }
