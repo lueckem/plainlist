@@ -12,18 +12,26 @@ use crate::{
 
 #[derive(Args)]
 pub struct AppendArgs {
+    /// Path to the input plainlist file
     input: PathBuf,
 
+    /// Path to the music library directory
     #[arg(short, long)]
     library: PathBuf,
 
+    /// Filter tracks by artist name
     #[arg(long)]
     artist: Option<String>,
 
+    /// Filter tracks by album name
     #[arg(long)]
     album: Option<String>,
 }
 
+/// Append tracks from library to a plainlist
+///
+/// This function scans the music library and appends matching tracks (filtered by artist, album)
+/// to an existing plainlist file.
 pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
     // Abort if both artist and album are None
     if args.artist.is_none() && args.album.is_none() {
@@ -48,7 +56,7 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Scans the music library and filters tracks based on artist or album criteria
+/// Scans the music library and filters tracks based on artist and album
 fn scan_and_filter_tracks(args: &AppendArgs) -> anyhow::Result<Vec<LocalTrack>> {
     let lib_path = args.library.canonicalize().context("invalid library")?;
     info!("Scanning library: '{}'", lib_path.display());
@@ -87,7 +95,8 @@ fn scan_and_filter_tracks(args: &AppendArgs) -> anyhow::Result<Vec<LocalTrack>> 
     Ok(tracks)
 }
 
-/// Sorts tracks by album first, then by track number.
+/// Sorts tracks by album first, then by track number
+///
 /// Tracks without album or track number are sorted by title.
 fn sort_tracks(tracks: &mut Vec<LocalTrack>) {
     tracks.sort_by(|a, b| {

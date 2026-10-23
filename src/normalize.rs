@@ -1,3 +1,5 @@
+//! String normalization utilities for music metadata
+
 use regex::Regex;
 use std::sync::LazyLock;
 use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
@@ -45,7 +47,7 @@ impl NormalizedAlbum {
     }
 }
 
-/// Normalize the string by removing non-alphanumeric characters, tansforming to lower case,
+/// Normalize the string by removing non-alphanumeric characters, transforming to lower case,
 /// and decomposing unicode (e.g., é to e).
 ///
 /// For example "Rollin' (Air Raid Vehicle)" -> "rollinairraidvehicle".

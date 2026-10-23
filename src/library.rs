@@ -5,7 +5,7 @@ use crate::{
     track::{LocalTrack, Track},
 };
 
-/// Result of querying the library.
+/// Result of querying the library for a track
 ///
 /// Example: query track "A; B -- T"
 /// - NotFound: there is no track with title "T" and artists containing "A" or "B".
@@ -18,12 +18,17 @@ use crate::{
 /// - Ambiguous: there a multiple best candidates with title "T" and non-empty artist intersection.
 ///   For example, two candidates with artists "{A, C}" and "{A, D}".
 pub enum QueryResult<'a> {
+    /// Exact match found
     Found(&'a LocalTrack),
+    /// Match found but artist names don't exactly match
     FoundArtistMismatch(&'a LocalTrack),
+    /// Multiple equally good matches found
     Ambiguous(Vec<&'a LocalTrack>),
+    /// No match found
     NotFound,
 }
 
+/// A music library containing tracks indexed by normalized titles
 pub struct Library {
     pub tracks: HashMap<NormalizedTitle, Vec<LocalTrack>>,
 }
@@ -51,7 +56,10 @@ impl Library {
         self.tracks.entry(norm_title).or_default().push(lt);
     }
 
-    /// Query if track `t` is in the library.
+    /// Query if track `t` is in the library
+    ///
+    /// Searches for a track in the library using normalized title and artist matching.
+    /// Returns different match results based on how well the track matches.
     ///
     /// 1. Check if normalized title of `t` is in library. If not, return NotFound.
     /// 2. The vector of matches is called candidates.

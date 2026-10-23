@@ -18,6 +18,7 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use walkdir::WalkDir;
 
+/// Represents a track with its title and list of artists
 #[derive(Debug, Clone)]
 pub struct Track {
     pub title: String,
@@ -30,6 +31,7 @@ impl Track {
     }
 }
 
+/// Error types that can occur when parsing tracks from plainlist format
 #[derive(Error, Debug)]
 pub enum ParsePlainError {
     #[error("missing artist and title separator ' -- '")]
@@ -40,6 +42,10 @@ pub enum ParsePlainError {
     EmptyArtist,
 }
 
+/// Parse a track from a string in plainlist format
+///
+/// Parses a string in the format "artist -- title" into a Track object.
+/// Supports various artist separators like "; ", " / ", and " feat. ".
 impl FromStr for Track {
     type Err = ParsePlainError;
 
@@ -68,12 +74,16 @@ impl FromStr for Track {
     }
 }
 
+/// Display a track in plainlist format
 impl Display for Track {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} -- {}", self.artists.join("; "), self.title)
     }
 }
 
+/// Read tracks from a plainlist file
+///
+/// Parses a plainlist file and extracts all tracks, skipping comments and empty lines.
 pub fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<Track>> {
     let content = std::fs::read_to_string(path)?;
 
@@ -93,6 +103,9 @@ pub fn read_tracks_from_plainlist(path: impl AsRef<Path>) -> anyhow::Result<Vec<
     Ok(tracks)
 }
 
+/// A local track with additional metadata from file tags
+///
+/// Represents a track that has been read from a music file and includes metadata like album, disc, and track number.
 #[derive(Debug, Clone)]
 pub struct LocalTrack {
     pub track: Track,
@@ -121,6 +134,9 @@ impl LocalTrack {
         }
     }
 
+    /// Read track metadata from a file
+    ///
+    /// Extracts track information from the audio file's metadata tags.
     pub fn read_from_file(path: PathBuf) -> anyhow::Result<Self> {
         let tagged_file = read_tagged_file(&path)?;
 
@@ -165,6 +181,8 @@ fn read_tagged_file(path: &Path) -> anyhow::Result<TaggedFile> {
     Ok(tagged_file)
 }
 
+/// Attempt to read artist information from file tags
+///
 /// Tries TrackArtists -> TrackArtist -> AlbumArtists -> AlbumArtist,
 /// returning the first non-empty result.
 fn read_artists(tag: &Tag) -> Option<Vec<String>> {
@@ -189,6 +207,7 @@ fn read_single(tag: &Tag, key: ItemKey) -> Option<Vec<String>> {
     (!artist.is_empty()).then(|| split_artists(artist))
 }
 
+/// Split artist string into individual artists by various separators
 fn split_artists(artist: &str) -> Vec<String> {
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r";| / | feat\.? | ft\.? ").unwrap());
 
@@ -199,6 +218,7 @@ fn split_artists(artist: &str) -> Vec<String> {
         .collect()
 }
 
+/// Recursively scan a directory for audio files and extract track information from their metadata
 pub fn scan_dir(path: &Path) -> Vec<LocalTrack> {
     let paths: Vec<PathBuf> = WalkDir::new(path)
         .into_iter()

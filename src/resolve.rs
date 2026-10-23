@@ -13,18 +13,26 @@ use crate::{
 
 #[derive(Args)]
 pub struct ResolveArgs {
+    /// Path to the input plainlist file
     input: PathBuf,
 
+    /// Output path for the generated playlist
     #[arg(short, long)]
     output: Option<PathBuf>,
 
+    /// Path to the music library directory
     #[arg(short, long)]
     library: PathBuf,
 
+    /// Use relative paths
     #[arg(long)]
     portable: bool,
 }
 
+/// Resolve plainlist tracks against library and generate M3U playlist
+///
+/// This function scans the music library, matches tracks from the plainlist,
+/// and creates an M3U playlist with resolved file paths.
 pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
     // make all paths absolute
     let in_path = absolute(args.input)?;
@@ -107,6 +115,9 @@ pub fn process_resolve(args: ResolveArgs) -> anyhow::Result<()> {
 }
 
 /// Resolve the `plainlist_tracks` against the `library` and return the paths of the matched tracks.
+///
+/// This function attempts to match each track from the plainlist against the library.
+/// It handles various query results including not found, artist mismatch, and ambiguous matches.
 fn resolve_plainlist(plainlist_tracks: &[Track], library: &Library) -> Vec<PathBuf> {
     let mut paths = Vec::with_capacity(plainlist_tracks.len());
     for t in plainlist_tracks {

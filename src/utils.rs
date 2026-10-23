@@ -9,12 +9,14 @@ use anyhow::{Context, bail};
 use crate::track::Track;
 
 pub enum PlaylistType {
+    /// Plainlist format (.plainlist extension)
     Plainlist,
+    /// M3U playlist format (.m3u and .m3u8 extensions)
     M3U,
 }
 
 impl PlaylistType {
-    /// The file extensions that are associated to the type.
+    /// Get the file extensions associated with this playlist type
     pub fn extensions(&self) -> Vec<&str> {
         match self {
             Self::Plainlist => vec!["plainlist"],
@@ -22,16 +24,19 @@ impl PlaylistType {
         }
     }
 
-    /// The preferred file extension of the type.
+    /// Get the preferred file extension for this playlist type
     pub fn main_extension(&self) -> &str {
         self.extensions()[0]
     }
 }
 
-/// Collect input paths and target output paths with given types for conversion.
+/// Collect input paths and target output paths with given types for conversion
+///
+/// This function handles the logic for mapping input files to output files based on
+/// their types (e.g., Plainlist or M3U) and directory structures.
 ///
 /// If `input` and `output` are files, the output path is just `output`.
-/// If `input` is a file and `output` is `None`, the output path is the input stem with`out_ext`.
+/// If `input` is a file and `output` is `None`, the output path is the input stem with `out_ext`.
 /// If `input` and `output` are directories, searches for all files with `in_ext` and puts the stems
 /// in the `output` dir with the `out_ext` extension.
 /// If `input` is a directory and `output` is `None`, searches for all files with `in_ext` and puts
@@ -108,6 +113,9 @@ pub fn collect_inputs_outputs(
     bail!("input path '{}' does not exist", input.display())
 }
 
+/// Ensure a file has the correct extension for a playlist type
+///
+/// Validates that a file path has one of the valid extensions for the specified playlist type.
 fn ensure_extension(path: &Path, ptype: &PlaylistType) -> anyhow::Result<()> {
     match path.extension() {
         Some(e) if ptype.extensions().iter().any(|v| *v == e) => Ok(()),
@@ -119,7 +127,7 @@ fn ensure_extension(path: &Path, ptype: &PlaylistType) -> anyhow::Result<()> {
     }
 }
 
-/// Returns all files inside `dir` that have a valid extension for the PlaylistType (not recursive).
+/// Collect files with a specific playlist type from a directory
 fn collect_files_with_ptype(dir: &Path, ptype: &PlaylistType) -> anyhow::Result<Vec<PathBuf>> {
     let valid_extensions = ptype.extensions();
     let mut files = Vec::new();
@@ -142,7 +150,7 @@ fn collect_files_with_ptype(dir: &Path, ptype: &PlaylistType) -> anyhow::Result<
     Ok(files)
 }
 
-/// Writes the `track_paths` to disk at `out_path`.
+/// Write track paths to an M3U playlist file
 pub fn write_playlist_m3u<T, P>(track_paths: &[T], out_path: P) -> anyhow::Result<()>
 where
     T: AsRef<Path>,
@@ -157,7 +165,9 @@ where
     Ok(())
 }
 
-/// Writes the `tracks` to disk at `out_path`.
+/// Write tracks to a plainlist file
+///
+/// The `append` argument controls whether to append to existing file or overwrite
 pub fn write_plainlist<P>(tracks: &[Track], out_path: P, append: bool) -> anyhow::Result<()>
 where
     P: AsRef<Path>,

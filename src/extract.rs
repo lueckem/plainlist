@@ -16,13 +16,17 @@ use crate::{
     utils::{PlaylistType, collect_inputs_outputs, write_plainlist},
 };
 
+/// Source format for extraction
 #[derive(Debug, Clone, ValueEnum)]
 enum ExtractSource {
+    /// M3U playlist format
     M3U,
+    /// Spotify export JSON format
     Spotify,
 }
 
 impl ExtractSource {
+    /// Guess the extraction source from file extension
     fn guess_from_path(p: &Path) -> Option<Self> {
         let ext = p.extension()?.to_ascii_lowercase();
         if ext == "m3u" || ext == "m3u8" {
@@ -35,15 +39,22 @@ impl ExtractSource {
 
 #[derive(Args)]
 pub struct ExtractArgs {
+    /// Path to the input file
     input: PathBuf,
 
+    /// Source format of the input file
     #[arg(value_enum, long)]
     from: Option<ExtractSource>,
 
+    /// Output path for the generated plainlist
     #[arg(short)]
     output: Option<PathBuf>,
 }
 
+/// Extract plainlists from other formats
+///
+/// This function processes input files in various formats and converts them
+/// to plainlist format. It determines the source type automatically when not specified.
 pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
     let Some(extr_source) = args
         .from
@@ -97,6 +108,7 @@ fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Extract tracks from an M3U playlist file and write associated plainlist
 fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
     // in_path is a file, so this never fails
     let in_dir = in_path.parent().unwrap();
@@ -145,6 +157,7 @@ fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Extract tracks from a Spotify export JSON file and writes associated plainlists
 fn process_extract_spotify(args: ExtractArgs) -> anyhow::Result<()> {
     if !args.input.is_file() {
         anyhow::bail!("input has to be a '.json' file");
