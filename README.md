@@ -39,7 +39,7 @@ Supported source formats:
 
 Append tracks from the library to an existing plainlist.
 
-Example: `plainlist append --library ~/Music --artist Beatles --album "Help!" favorites.plainlist` finds all tracks with matching artist and album from the library and appends them to the plainlist.
+Example: `plainlist append --library ~/Music --artist "The Beatles" --album "Help!" favorites.plainlist` finds all tracks with matching artist and album from the library and appends them to the plainlist.
 
 
 ## Why use plainlists?
