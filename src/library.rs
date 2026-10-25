@@ -115,3 +115,71 @@ impl Library {
 fn norm_artist_set(artists: &[String]) -> HashSet<NormalizedArtist> {
     artists.iter().map(|a| NormalizedArtist::new(a)).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::*;
+
+    // Helper function to create a LocalTrack for testing
+    fn create_local_track(title: &str, artists: Vec<&str>) -> LocalTrack {
+        let track = Track::new(
+            title.to_string(),
+            artists.into_iter().map(|s| s.to_string()).collect(),
+        );
+        LocalTrack::new(
+            track.title,
+            track.artists,
+            None,
+            None,
+            None,
+            std::path::PathBuf::from("test.mp3"),
+        )
+    }
+
+    #[fixture]
+    fn library() -> Library {
+        let tracks = vec![
+            ("Master of Puppets", vec!["Metallica"]),
+            ("Numb / Encore", vec!["Linkin Park", "Jay-Z"]),
+        ];
+
+        let mut library = Library::new();
+        for (title, artists) in tracks {
+            library.insert(create_local_track(title, artists));
+        }
+        library
+    }
+
+    #[rstest]
+    fn test_query_found(library: Library) {
+        let track: Track = "Metallica -- Master Of Puppets".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.title, "Master of Puppets");
+        assert_eq!(lt.track.artists, vec!["Metallica"]);
+    }
+
+    #[rstest]
+    fn test_query_artist_mismatch(library: Library) {
+        let track: Track = "Jay-Z -- Numb / Encore".parse().unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(lt.track.title, "Numb / Encore");
+        assert_eq!(lt.track.artists, vec!["Linkin Park", "Jay-Z"]);
+    }
+
+    // TODO: test ambiguous
+
+    #[rstest]
+    fn test_query_not_found(library: Library) {
+        let track: Track = "System Of A Down -- Chop Suey".parse().unwrap();
+        assert!(matches!(library.query(&track), QueryResult::NotFound));
+    }
+
+    // TODO: more tests
+}
