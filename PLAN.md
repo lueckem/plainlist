@@ -7,15 +7,31 @@ While there are some tests in `src/track.rs`, core library matching logic lacks 
 
 ### Solution
 Add extensive unit tests for:
-- Library query logic with various artist combinations
-- Normalization functions with edge cases  
+- Library query logic with various artist combinations (exact match, artist mismatch, ambiguous, not found)
+- Normalization functions with edge cases (Unicode, special characters, title suffixes)
 - Error handling paths in track parsing and resolution
+- Full integration flow testing
 
 ### Steps
-1. Add tests to `src/library.rs` for different query scenarios (found, not found, ambiguous, etc.)
-2. Add tests to `src/normalize.rs` for edge cases in normalization
-3. Add integration tests for full resolve flow
-4. Add test coverage for error paths in track parsing
+
+1. Library Query Logic (src/library.rs):
+    - Exact matches (Found case)
+    - Artist mismatches (FoundArtistMismatch case) 
+    - Ambiguous matches (Ambiguous case)
+    - No matches (NotFound case)
+    - Edge cases with empty artists and various combinations
+2. Normalization Functions (src/normalize.rs):
+    - Unicode normalization edge cases
+    - Title suffix stripping scenarios
+    - Empty strings and whitespace handling
+    - Special character combinations
+3. Track Parsing Logic (src/track.rs):
+    - All error paths (missing separator, empty title/artist)
+    - Complex artist combinations with multiple separators
+    - Whitespace variations and edge cases
+4. Full Resolve Flow Integration:
+    - Complete resolution process testing
+    - Error handling throughout the flow
 
 ## 2. Improve error handling consistency
 
