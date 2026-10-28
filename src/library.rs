@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 
 use strsim::levenshtein;
@@ -18,7 +19,7 @@ use crate::{
 ///   Uniquely best means that it has a better match than all other tracks with title "T",
 ///   e.g., if there are two candidates with artists "{A, B, C}" and "{A, X, Y, Z}", then
 ///   "{A, B, C}" is the better match.
-/// - Ambiguous: there a multiple best candidates with title "T" and non-empty artist intersection.
+/// - Ambiguous: there are multiple best candidates with title "T" and non-empty artist intersection.
 ///   For example, two candidates with artists "{A, C}" and "{A, D}".
 pub enum QueryResult<'a> {
     /// Exact match found
@@ -34,6 +35,22 @@ pub enum QueryResult<'a> {
 /// A music library containing tracks indexed by normalized titles
 pub struct Library {
     pub tracks: HashMap<NormalizedTitle, Vec<LocalTrack>>,
+}
+
+/// A candidate track (same normalized title as the query) together with
+/// its artist overlap with the query. Only candidates with `overlap > 0` exist.
+struct ScoredCandidate<'a> {
+    track: &'a LocalTrack,
+    artists: HashSet<NormalizedArtist>,
+    /// Size of the intersection between the candidate's and the query's artists.
+    overlap: usize,
+}
+
+impl ScoredCandidate<'_> {
+    /// Larger overlap is better; for equal overlap, fewer artists is better.
+    fn rank(&self) -> (usize, Reverse<usize>) {
+        (self.overlap, Reverse(self.artists.len()))
+    }
 }
 
 impl Library {
@@ -61,19 +78,17 @@ impl Library {
 
     /// Query if track `t` is in the library
     ///
-    /// Searches for a track in the library using normalized title and artist matching.
-    /// Returns different match results based on how well the track matches.
-    ///
-    /// 1. Check if normalized title of `t` is in library. If not, return NotFound.
-    /// 2. The vector of matches is called candidates.
-    ///    Compare normalized artists of `t` against the candidates.
-    ///    If there are no tracks in the candidates that have at least one matching artist, return NotFound.
-    ///    If there are, find the matches with largest intersection and smallest artist set.
-    /// 3. If the match is unique, return Found or FoundArtistMismatch.
-    /// 4. Otherwise, the artists match is ambiguous. If all matches have the same artists,
-    ///   try to solve ambiguity by title similarity (levenshtein distance).
-    ///   If that succeeds, returns Found or FoundArtistMismatch.
-    ///   Else, returns Ambiguous.
+    /// 1. Look up the tracks whose normalized title equals that of `t` (the candidates).
+    ///    If there are none, return NotFound.
+    /// 2. Keep candidates that share at least one normalized artist with `t`, and
+    ///    from those the best ranked ones: largest artist intersection, then smallest
+    ///    artist set. If none are left, return NotFound.
+    /// 3. If exactly one candidate is left, return Found (identical artist sets)
+    ///    or FoundArtistMismatch.
+    /// 4. Otherwise the match is ambiguous. If all remaining candidates have the same
+    ///    artists, try to break the tie by title similarity (levenshtein distance).
+    ///    If one candidate is strictly closest, return Found or FoundArtistMismatch.
+    ///    Else, return Ambiguous.
     pub fn query(&self, t: &Track) -> QueryResult<'_> {
         let norm_title = NormalizedTitle::new(&t.title);
         let Some(candidates) = self.tracks.get(&norm_title) else {
@@ -81,76 +96,101 @@ impl Library {
         };
 
         let query_artists = norm_artist_set(&t.artists);
+        let scored_candidates = score_candidates(candidates, &query_artists);
+        let best = best_ranked(scored_candidates);
 
-        // (&track, intersect_size, artist_set_size)
-        let mut scored_candidates: Vec<(&LocalTrack, usize, usize)> = candidates
-            .iter()
-            .filter_map(|lt| {
-                let lt_artists = norm_artist_set(&lt.track.artists);
-                let intersect_size = lt_artists.intersection(&query_artists).count();
-                if intersect_size == 0 {
-                    return None;
-                }
-                Some((lt, intersect_size, lt_artists.len()))
-            })
-            .collect();
-
-        if scored_candidates.is_empty() {
-            return QueryResult::NotFound;
+        match best.as_slice() {
+            [] => QueryResult::NotFound,
+            [only] => classify(only, &query_artists),
+            _ => resolve_tie(&t.title, best, &query_artists),
         }
-
-        // sort first by intersect_size, then by artist_set_size
-        scored_candidates.sort_by(|a, b| b.1.cmp(&a.1).then(a.2.cmp(&b.2)));
-        let (best_intersect, best_size) = (scored_candidates[0].1, scored_candidates[0].2);
-
-        let matched_candidates: Vec<&LocalTrack> = scored_candidates
-            .into_iter()
-            .take_while(|(_, c, s)| *c == best_intersect && *s == best_size)
-            .map(|(lt, _, _)| lt)
-            .collect();
-        if matched_candidates.len() == 1 {
-            if (best_intersect == best_size) && (best_size == query_artists.len()) {
-                return QueryResult::Found(matched_candidates[0]);
-            } else {
-                return QueryResult::FoundArtistMismatch(matched_candidates[0]);
-            }
-        }
-
-        // There are at least two best matched candidates.
-        // If their artist sets are identical, decide by title similarity.
-        // Otherwise it is ambiguous.
-        let nas_1 = norm_artist_set(&matched_candidates[0].track.artists);
-        if matched_candidates
-            .iter()
-            .skip(1)
-            .all(|lt| nas_1 == norm_artist_set(&lt.track.artists))
-        {
-            let query_title: String = normalize_title(&t.title);
-            let distances: Vec<usize> = matched_candidates
-                .iter()
-                .map(|lt| levenshtein(&query_title, &normalize_title(&lt.track.title)))
-                .collect();
-            let mut idxs: Vec<usize> = (0..distances.len()).collect();
-            idxs.sort_by_key(|&i| distances[i]);
-            if distances[idxs[0]] < distances[idxs[1]] {
-                // there is a best match that solves the ambiguity
-                let best_match = matched_candidates[idxs[0]];
-                if norm_artist_set(&best_match.track.artists) == query_artists {
-                    // the artists match exactly -> Found
-                    return QueryResult::Found(best_match);
-                }
-                // the artists do not match exactly -> FoundArtistMismatch
-                return QueryResult::FoundArtistMismatch(best_match);
-            }
-        }
-        QueryResult::Ambiguous(matched_candidates)
     }
+}
+
+/// Scores every candidate by artist overlap with the query and drops those without overlap.
+fn score_candidates<'a>(
+    candidates: &'a [LocalTrack],
+    query_artists: &HashSet<NormalizedArtist>,
+) -> Vec<ScoredCandidate<'a>> {
+    candidates
+        .iter()
+        .filter_map(|lt| {
+            let artists = norm_artist_set(&lt.track.artists);
+            let overlap = artists.intersection(query_artists).count();
+            (overlap > 0).then(|| ScoredCandidate {
+                track: lt,
+                artists,
+                overlap,
+            })
+        })
+        .collect()
+}
+
+/// Keeps only the candidates sharing the best rank. Preserves the original order.
+fn best_ranked(mut scored: Vec<ScoredCandidate<'_>>) -> Vec<ScoredCandidate<'_>> {
+    if let Some(best) = scored.iter().map(ScoredCandidate::rank).max() {
+        scored.retain(|c| c.rank() == best);
+    }
+    scored
+}
+
+/// Turns a single chosen candidate into `Found` (identical artist sets)
+/// or `FoundArtistMismatch`.
+fn classify<'a>(
+    candidate: &ScoredCandidate<'a>,
+    query_artists: &HashSet<NormalizedArtist>,
+) -> QueryResult<'a> {
+    if &candidate.artists == query_artists {
+        QueryResult::Found(candidate.track)
+    } else {
+        QueryResult::FoundArtistMismatch(candidate.track)
+    }
+}
+
+/// Handles two or more equally ranked candidates.
+///
+/// The tie can only be broken by title similarity if all candidates have the
+/// same artist set; otherwise (e.g. "{A, C}" vs "{A, D}") the result is ambiguous.
+fn resolve_tie<'a>(
+    query_title: &str,
+    best: Vec<ScoredCandidate<'a>>,
+    query_artists: &HashSet<NormalizedArtist>,
+) -> QueryResult<'a> {
+    if all_same_artists(&best) {
+        if let Some(i) = unique_closest_title(query_title, &best) {
+            return classify(&best[i], query_artists);
+        }
+    }
+    QueryResult::Ambiguous(best.into_iter().map(|c| c.track).collect())
+}
+
+fn all_same_artists(candidates: &[ScoredCandidate<'_>]) -> bool {
+    candidates.windows(2).all(|w| w[0].artists == w[1].artists)
+}
+
+/// Index of the candidate whose title is strictly closer to `query_title`
+/// than every other candidate's, or `None` if there is a tie (or no candidates).
+fn unique_closest_title(query_title: &str, candidates: &[ScoredCandidate<'_>]) -> Option<usize> {
+    let query_title = normalize_title(query_title);
+    let distances: Vec<usize> = candidates
+        .iter()
+        .map(|c| levenshtein(&query_title, &normalize_title(&c.track.track.title)))
+        .collect();
+
+    let min = *distances.iter().min()?;
+    let mut at_min = distances.iter().enumerate().filter(|&(_, &d)| d == min);
+    let (idx, _) = at_min.next()?;
+    at_min.next().is_none().then_some(idx)
 }
 
 fn norm_artist_set(artists: &[String]) -> HashSet<NormalizedArtist> {
     artists.iter().map(|a| NormalizedArtist::new(a)).collect()
 }
 
+/// Normalize title by dealing with unicode and converting to lowercase.
+///
+/// It is different from NormalizedTitle as this keeps non-alpahanumeric characters
+/// and does not remove suffixes like "- Remastered".
 fn normalize_title(a: &str) -> String {
     a.trim()
         .nfd()
