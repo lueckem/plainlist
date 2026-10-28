@@ -140,7 +140,12 @@ fn resolve_plainlist(plainlist_tracks: &[Track], library: &Library) -> Vec<PathB
                 &lt.path
             }
             QueryResult::Ambiguous(lts) => {
-                warn!("Ambiguous: found {} matches for track '{}'", lts.len(), t);
+                info!(
+                    "Ambiguous: found {} matches for track '{}'; picked '{}'",
+                    lts.len(),
+                    t,
+                    &lts[0].path.display()
+                );
                 &lts[0].path
             }
         };

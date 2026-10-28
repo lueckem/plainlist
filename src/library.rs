@@ -358,10 +358,9 @@ mod tests {
         assert!(candidates.iter().all(|lt| lt.track.title == "Hurt"));
     }
 
-    // TODO: Should this not actually give a QueryResult::Found?
     #[rstest]
     fn test_query_ambiguous_exact_duplicates(library: Library) {
-        // Even a perfect artist match is ambiguous if the library holds two identical entries.
+        // perfect match but the library holds two identical entries
         let track: Track = "Adele -- Hello".parse().unwrap();
 
         let QueryResult::Ambiguous(candidates) = library.query(&track) else {
