@@ -132,6 +132,7 @@ mod tests {
 
     #[rstest]
     #[case("In The Air Tonight - Remastered 2015", "intheairtonight")]
+    #[case("In The Air Tonight - Remastered", "intheairtonight")]
     #[case("Sehnsucht (Remastered 2023)", "sehnsucht")]
     #[case("Black or White - Single Version", "blackorwhite")]
     #[case("Dance with Somebody - Radio Version", "dancewithsomebody")]

@@ -1,5 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use strsim::levenshtein;
+use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
+
 use crate::{
     normalize::{NormalizedArtist, NormalizedTitle},
     track::{LocalTrack, Track},
@@ -66,7 +69,11 @@ impl Library {
     ///    Compare normalized artists of `t` against the candidates.
     ///    If there are no tracks in the candidates that have at least one matching artist, return NotFound.
     ///    If there are, find the matches with largest intersection and smallest artist set.
-    /// 3. If the match is unique, return Found. Otherwise, return Ambiguous.
+    /// 3. If the match is unique, return Found or FoundArtistMismatch.
+    /// 4. Otherwise, the artists match is ambiguous. If all matches have the same artists,
+    ///   try to solve ambiguity by title similarity (levenshtein distance).
+    ///   If that succeeds, returns Found or FoundArtistMismatch.
+    ///   Else, returns Ambiguous.
     pub fn query(&self, t: &Track) -> QueryResult<'_> {
         let norm_title = NormalizedTitle::new(&t.title);
         let Some(candidates) = self.tracks.get(&norm_title) else {
@@ -108,12 +115,48 @@ impl Library {
                 return QueryResult::FoundArtistMismatch(matched_candidates[0]);
             }
         }
+
+        // There are at least two best matched candidates.
+        // If their artist sets are identical, decide by title similarity.
+        // Otherwise it is ambiguous.
+        let nas_1 = norm_artist_set(&matched_candidates[0].track.artists);
+        if matched_candidates
+            .iter()
+            .skip(1)
+            .all(|lt| nas_1 == norm_artist_set(&lt.track.artists))
+        {
+            let query_title: String = normalize_title(&t.title);
+            let distances: Vec<usize> = matched_candidates
+                .iter()
+                .map(|lt| levenshtein(&query_title, &normalize_title(&lt.track.title)))
+                .collect();
+            let mut idxs: Vec<usize> = (0..distances.len()).collect();
+            idxs.sort_by_key(|&i| distances[i]);
+            if distances[idxs[0]] < distances[idxs[1]] {
+                // there is a best match that solves the ambiguity
+                let best_match = matched_candidates[idxs[0]];
+                if norm_artist_set(&best_match.track.artists) == query_artists {
+                    // the artists match exactly -> Found
+                    return QueryResult::Found(best_match);
+                }
+                // the artists do not match exactly -> FoundArtistMismatch
+                return QueryResult::FoundArtistMismatch(best_match);
+            }
+        }
         QueryResult::Ambiguous(matched_candidates)
     }
 }
 
 fn norm_artist_set(artists: &[String]) -> HashSet<NormalizedArtist> {
     artists.iter().map(|a| NormalizedArtist::new(a)).collect()
+}
+
+fn normalize_title(a: &str) -> String {
+    a.trim()
+        .nfd()
+        .filter(|&c| !is_combining_mark(c))
+        .flat_map(|c| c.to_lowercase())
+        .collect()
 }
 
 #[cfg(test)]
@@ -159,6 +202,9 @@ mod tests {
             // same intersection with the query, but different artist set sizes
             ("Crowded Track", vec!["A", "B", "C"]),
             ("Crowded Track", vec!["A", "X", "Y", "Z"]),
+            // suffix that is removed by normalization
+            ("Hey Jude", vec!["The Beatles"]),
+            ("Hey Jude - Remastered 2009", vec!["The Beatles"]),
         ];
 
         let mut library = Library::new();
@@ -254,6 +300,18 @@ mod tests {
         );
     }
 
+    #[rstest]
+    fn test_query_found_decided_by_title_similarity(library: Library) {
+        // `Hey Jude - Remastered 2009` is more similar than `Hey Jude`
+        let track: Track = "The Beatles -- Hey Jude - Remastered".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.title, "Hey Jude - Remastered 2009");
+        assert_eq!(lt.track.artists, vec!["The Beatles"]);
+    }
+
     // ---------- Test QueryResult::FoundArtistMismatch ----------
 
     #[rstest]
@@ -324,6 +382,21 @@ mod tests {
             lt.track.artists,
             vec!["Post Malone", "Swae Lee", "DJ Snake"]
         );
+    }
+
+    #[rstest]
+    fn test_query_artist_mismatch_decided_by_title_similarity(library: Library) {
+        // `Hey Jude - Remastered 2009` is more similar than `Hey Jude`,
+        // but the artists do not match
+        let track: Track = "The Beatles; John Lennon -- Hey Jude - Remastered"
+            .parse()
+            .unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(lt.track.title, "Hey Jude - Remastered 2009");
+        assert_eq!(lt.track.artists, vec!["The Beatles"]);
     }
 
     // ---------- Test QueryResult::Ambiguous ----------
