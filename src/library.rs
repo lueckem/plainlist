@@ -140,8 +140,25 @@ mod tests {
     #[fixture]
     fn library() -> Library {
         let tracks = vec![
+            // some example tracks
             ("Master of Puppets", vec!["Metallica"]),
             ("Numb / Encore", vec!["Linkin Park", "Jay-Z"]),
+            ("Cheap Thrills", vec!["Sia"]),
+            // same title, different artists
+            ("Hurt", vec!["Nine Inch Nails"]),
+            ("Hurt", vec!["Johnny Cash"]),
+            // same title, shared first artist, different second artist
+            ("Stay", vec!["Zedd", "Alessia Cara"]),
+            ("Stay", vec!["Zedd", "Rihanna"]),
+            // exact duplicates (e.g. same song on two albums)
+            ("Hello", vec!["Adele"]),
+            ("Hello", vec!["Adele"]),
+            // candidates where the artist set is a subset/superset of another
+            ("Sunflower", vec!["Post Malone", "Swae Lee"]),
+            ("Sunflower", vec!["Post Malone", "Swae Lee", "DJ Snake"]),
+            // same intersection with the query, but different artist set sizes
+            ("Crowded Track", vec!["A", "B", "C"]),
+            ("Crowded Track", vec!["A", "X", "Y", "Z"]),
         ];
 
         let mut library = Library::new();
@@ -151,9 +168,11 @@ mod tests {
         library
     }
 
+    // ---------- Test QueryResult::Found ----------
+
     #[rstest]
     fn test_query_found(library: Library) {
-        let track: Track = "Metallica -- Master Of Puppets".parse().unwrap();
+        let track: Track = "Metallica -- Master of Puppets".parse().unwrap();
 
         let QueryResult::Found(lt) = library.query(&track) else {
             panic!("Expected QueryResult::Found")
@@ -163,7 +182,82 @@ mod tests {
     }
 
     #[rstest]
-    fn test_query_artist_mismatch(library: Library) {
+    fn test_query_found_normalization(library: Library) {
+        let track: Track = "METALLICA -- MASTER OF PUPPETS".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.title, "Master of Puppets");
+        assert_eq!(lt.track.artists, vec!["Metallica"]);
+    }
+
+    #[rstest]
+    fn test_query_found_artist_order_irrelevant(library: Library) {
+        let track: Track = "Jay-Z; Linkin Park -- Numb / Encore".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.title, "Numb / Encore");
+        assert_eq!(lt.track.artists, vec!["Linkin Park", "Jay-Z"]);
+    }
+
+    #[rstest]
+    fn test_query_found_same_title_selects_by_artist(library: Library) {
+        // must not match "Nine Inch Nails -- Hurt"
+        let track: Track = "Johnny Cash -- Hurt".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.title, "Hurt");
+        assert_eq!(lt.track.artists, vec!["Johnny Cash"]);
+    }
+
+    #[rstest]
+    fn test_query_found_second_artist_disambiguates(library: Library) {
+        // "Zedd" alone would be ambiguous, but "Zedd; Rihanna" has a larger
+        // intersection with exactly one candidate.
+        let track: Track = "Zedd; Rihanna -- Stay".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.artists, vec!["Zedd", "Rihanna"]);
+    }
+
+    #[rstest]
+    fn test_query_found_prefers_exact_match_over_superset(library: Library) {
+        // Both candidates have intersection 2; the smaller artist set wins.
+        let track: Track = "Post Malone; Swae Lee -- Sunflower".parse().unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(lt.track.artists, vec!["Post Malone", "Swae Lee"]);
+    }
+
+    #[rstest]
+    fn test_query_found_prefers_exact_match_over_subset(library: Library) {
+        // The 3-artist candidate has the larger intersection (3 vs 2).
+        let track: Track = "Post Malone; Swae Lee; DJ Snake -- Sunflower"
+            .parse()
+            .unwrap();
+
+        let QueryResult::Found(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::Found")
+        };
+        assert_eq!(
+            lt.track.artists,
+            vec!["Post Malone", "Swae Lee", "DJ Snake"]
+        );
+    }
+
+    // ---------- Test QueryResult::FoundArtistMismatch ----------
+
+    #[rstest]
+    fn test_query_artist_mismatch_missing_artist(library: Library) {
         let track: Track = "Jay-Z -- Numb / Encore".parse().unwrap();
 
         let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
@@ -173,7 +267,114 @@ mod tests {
         assert_eq!(lt.track.artists, vec!["Linkin Park", "Jay-Z"]);
     }
 
-    // TODO: test ambiguous
+    #[rstest]
+    fn test_query_artist_mismatch_additional_artist(library: Library) {
+        let track: Track = "Sean Paul; Sia -- Cheap Thrills".parse().unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(lt.track.title, "Cheap Thrills");
+        assert_eq!(lt.track.artists, vec!["Sia"]);
+    }
+
+    #[rstest]
+    fn test_query_artist_mismatch_partial_overlap(library: Library) {
+        // Overlap on one artist, but each side has an artist the other lacks.
+        let track: Track = "Linkin Park; Eminem -- Numb / Encore".parse().unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(lt.track.artists, vec!["Linkin Park", "Jay-Z"]);
+    }
+
+    #[rstest]
+    fn test_query_artist_mismatch_prefers_smaller_artist_set(library: Library) {
+        // Both candidates have intersection 1; {A, B, C} beats {A, X, Y, Z}.
+        let track: Track = "A -- Crowded Track".parse().unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(lt.track.artists, vec!["A", "B", "C"]);
+    }
+
+    #[rstest]
+    fn test_query_artist_mismatch_prefers_smaller_set_subset_query(library: Library) {
+        // Query is a strict subset of both candidates.
+        let track: Track = "Post Malone -- Sunflower".parse().unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(lt.track.artists, vec!["Post Malone", "Swae Lee"]);
+    }
+
+    #[rstest]
+    fn test_query_artist_mismatch_larger_intersection_beats_smaller(library: Library) {
+        // {Post Malone, Swae Lee}: intersection 1, size 2
+        // {Post Malone, Swae Lee, DJ Snake}: intersection 2, size 3  <- wins
+        let track: Track = "Swae Lee; DJ Snake -- Sunflower".parse().unwrap();
+
+        let QueryResult::FoundArtistMismatch(lt) = library.query(&track) else {
+            panic!("Expected QueryResult::FoundArtistMismatch")
+        };
+        assert_eq!(
+            lt.track.artists,
+            vec!["Post Malone", "Swae Lee", "DJ Snake"]
+        );
+    }
+
+    // ---------- Test QueryResult::Ambiguous ----------
+
+    #[rstest]
+    fn test_query_ambiguous_shared_artist(library: Library) {
+        let track: Track = "Zedd -- Stay".parse().unwrap();
+
+        let QueryResult::Ambiguous(candidates) = library.query(&track) else {
+            panic!("Expected QueryResult::Ambiguous")
+        };
+        let mut artists: Vec<Vec<String>> = candidates
+            .iter()
+            .map(|lt| lt.track.artists.clone())
+            .collect();
+        artists.sort();
+        assert_eq!(
+            artists,
+            vec![vec!["Zedd", "Alessia Cara"], vec!["Zedd", "Rihanna"]]
+        );
+    }
+
+    #[rstest]
+    fn test_query_ambiguous_query_matches_all_candidates_equally(library: Library) {
+        // Each "Hurt" candidate matches exactly one query artist.
+        let track: Track = "Nine Inch Nails; Johnny Cash -- Hurt".parse().unwrap();
+
+        let QueryResult::Ambiguous(candidates) = library.query(&track) else {
+            panic!("Expected QueryResult::Ambiguous")
+        };
+        assert_eq!(candidates.len(), 2);
+        assert!(candidates.iter().all(|lt| lt.track.title == "Hurt"));
+    }
+
+    // TODO: Should this not actually give a QueryResult::Found?
+    #[rstest]
+    fn test_query_ambiguous_exact_duplicates(library: Library) {
+        // Even a perfect artist match is ambiguous if the library holds two identical entries.
+        let track: Track = "Adele -- Hello".parse().unwrap();
+
+        let QueryResult::Ambiguous(candidates) = library.query(&track) else {
+            panic!("Expected QueryResult::Ambiguous")
+        };
+        assert_eq!(candidates.len(), 2);
+        for lt in candidates {
+            assert_eq!(lt.track.title, "Hello");
+            assert_eq!(lt.track.artists, vec!["Adele"]);
+        }
+    }
+
+    // ---------- Test QueryResult::NotFound ----------
 
     #[rstest]
     fn test_query_not_found(library: Library) {
@@ -181,5 +382,15 @@ mod tests {
         assert!(matches!(library.query(&track), QueryResult::NotFound));
     }
 
-    // TODO: more tests
+    #[rstest]
+    fn test_query_not_found_title_exists_but_not_artist(library: Library) {
+        let track: Track = "Christina Aguilera -- Hurt".parse().unwrap();
+        assert!(matches!(library.query(&track), QueryResult::NotFound));
+    }
+
+    #[rstest]
+    fn test_query_not_found_artist_exists_but_not_title(library: Library) {
+        let track: Track = "Metallica -- Enter Sandman".parse().unwrap();
+        assert!(matches!(library.query(&track), QueryResult::NotFound));
+    }
 }
