@@ -1,25 +1,5 @@
 # Implementation Plan
 
-## 1. Add comprehensive unit tests for core logic
-
-### Problem
-While there are some tests in `src/track.rs`, core library matching logic lacks comprehensive testing.
-
-### Solution
-Add extensive unit tests for:
-- Error handling paths in track parsing and resolution
-- Full integration flow testing
-
-### Steps
-
-1. Track Parsing Logic (src/track.rs):
-    - All error paths (missing separator, empty title/artist)
-    - Complex artist combinations with multiple separators
-    - Whitespace variations and edge cases
-2. Full Resolve Flow Integration:
-    - Complete resolution process testing
-    - Error handling throughout the flow
-
 ## 2. Improve error handling consistency
 
 ### Problem
