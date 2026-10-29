@@ -10,8 +10,12 @@ pub struct NormalizedTitle(String);
 
 impl NormalizedTitle {
     pub fn new(s: &str) -> Self {
-        let normalized = normalize_str(s);
-        Self(strip_title_suffixes(normalized))
+        let normalized = normalize_str(strip_title_suffixes(s));
+        if normalized.is_empty() {
+            // Stripping suffixes left nothing; fall back to plain normalization.
+            return Self(normalize_str(s));
+        }
+        Self(normalized)
     }
 
     pub fn as_str(&self) -> &str {
@@ -60,22 +64,42 @@ fn normalize_str(s: &str) -> String {
         .collect()
 }
 
-/// Strip common suffixes from title, for example
-/// "sehnsuchtremastered2023" -> "sehnsucht".
-fn strip_title_suffixes(title: String) -> String {
-    // TODO: strip more common terms
-    // TODO: it works with "Remastered 2001" but not "2001 Remaster"
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(remastered|singleversion|radioversion|originalmix|radiomix)\d*$").unwrap()
-    });
-    let new_title = RE.replace(&title, "");
-    if new_title.is_empty() {
-        return title;
+/// Matches a trailing suffix that only describes a remaster or the original/radio/single/album
+/// release of the same recording.
+static SUFFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
+    // e.g. "'09", "1999", "2023"
+    let year = r"(?:['’]\d{2}|(?:19|20)\d{2})";
+
+    // "Remastered", "Remastered 2011", "2011 Remaster", "2009 Digital Remaster", etc.
+    let remaster = format!(
+        r"(?:{year}\s+)?(?:digital(?:ly)?\s+)?re-?master(?:ed|ing)?(?:\s+(?:version|edition|(?:in\s+)?{year}))*"
+    );
+
+    // "Single Version", "Radio Edit", "Album Version", "Original Mix", "Originalversion", etc.
+    let variant = r"(?:(?:original|album|lp|single|radio|studio|club|extended)\s*)+(?:version|mix|edit|recording)|original|explicit(?:\s+version)?|bonus\s+track";
+
+    let token = format!(r"(?:{remaster}|{variant})");
+    // Several tokens in one segment: "Remastered 2011 / Single Version"
+    let segment = format!(r"{token}(?:[\s,/&+-]+{token})*");
+
+    let pattern =
+        format!(r"(?i)(?:\s+[-–—]\s+{segment}|\s*[(\[]\s*{segment}\s*[)\]]|\s+{remaster})\s*$");
+    Regex::new(&pattern).unwrap()
+});
+
+/// Strips trailing suffixes like "- Remastered 2011" or "(Single Version)".
+/// Repeats until nothing is left to strip, so "Song (Remastered 2011) - Single Version" is stripped
+/// to "Song".
+fn strip_title_suffixes(title: &str) -> &str {
+    let mut rest = title.trim();
+    while let Some(m) = SUFFIX_RE.find(rest) {
+        let head = rest[..m.start()].trim_end();
+        if head.is_empty() {
+            break; // never strip down to nothing
+        }
+        rest = head;
     }
-    match new_title {
-        std::borrow::Cow::Borrowed(_) => title,
-        _ => new_title.into_owned(),
-    }
+    rest
 }
 
 #[cfg(test)]
@@ -131,12 +155,48 @@ mod tests {
     }
 
     #[rstest]
+    // remasters
     #[case("In The Air Tonight - Remastered 2015", "intheairtonight")]
     #[case("In The Air Tonight - Remastered", "intheairtonight")]
+    #[case("In The Air Tonight - Remastered '15", "intheairtonight")]
     #[case("Sehnsucht (Remastered 2023)", "sehnsucht")]
+    #[case("Sehnsucht (Remastered)", "sehnsucht")]
+    #[case("Sehnsucht [2023 Remaster]", "sehnsucht")]
+    #[case("Sehnsucht (Remastered in 2023)", "sehnsucht")]
+    #[case("Another Brick in the Wall - 2011 Remaster", "anotherbrickinthewall")]
+    #[case("Song – 2009 Digital Remaster", "song")]
+    #[case("Song – Digitally Remastered", "song")]
+    #[case("Song Remastered 2011", "song")]
+    #[case("Apollo 11 Remastered", "apollo11")]
+    // original / radio / single / album / etc.
     #[case("Black or White - Single Version", "blackorwhite")]
     #[case("Dance with Somebody - Radio Version", "dancewithsomebody")]
-    #[case("Remastered", "remastered")] // song "Remastered" should not be reduced to empty
+    #[case("Song (Radio Edit)", "song")]
+    #[case("Song - Album Version", "song")]
+    #[case("Song - Original Mix", "song")]
+    #[case("Song (Explicit)", "song")]
+    #[case("Song (Bonus Track)", "song")]
+    #[case("Song (Extended Mix)", "song")]
+    #[case("Song (Original Extended Mix)", "song")]
+    #[case("Song (Club Mix)", "song")]
+    // combinations
+    #[case("Song - Single Version (Remastered 2011)", "song")]
+    #[case("Song (Radio Edit / Remastered)", "song")]
+    #[case("Song - Remastered 2011 - Single Version", "song")]
+    // must NOT be reduced to empty
+    #[case("Remastered", "remastered")]
+    #[case("Remastered 2011", "remastered2011")]
+    #[case("(Remastered)", "remastered")]
+    #[case("Remastered (Remastered 2011)", "remastered")]
+    // different recordings: must be kept
+    #[case("Song - Live", "songlive")]
+    #[case("Song (Live in Berlin)", "songliveinberlin")]
+    #[case("Song (Techno Remix)", "songtechnoremix")]
+    #[case("Song - Acoustic Version", "songacousticversion")]
+    #[case("Song - Live at Wembley - Remastered", "songliveatwembley")]
+    // must not trigger on similar names
+    #[case("The Single Version", "thesingleversion")]
+    #[case("Truly Original Mix", "trulyoriginalmix")]
     fn title_strip_suffixes(#[case] input: &str, #[case] expected: &str) {
         assert_eq!(expected, NormalizedTitle::new(input).as_str())
     }

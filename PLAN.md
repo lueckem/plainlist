@@ -7,22 +7,16 @@ While there are some tests in `src/track.rs`, core library matching logic lacks 
 
 ### Solution
 Add extensive unit tests for:
-- Normalization functions with edge cases (Unicode, special characters, title suffixes)
 - Error handling paths in track parsing and resolution
 - Full integration flow testing
 
 ### Steps
 
-1. Normalization Functions (src/normalize.rs):
-    - Unicode normalization edge cases
-    - Title suffix stripping scenarios
-    - Empty strings and whitespace handling
-    - Special character combinations
-2. Track Parsing Logic (src/track.rs):
+1. Track Parsing Logic (src/track.rs):
     - All error paths (missing separator, empty title/artist)
     - Complex artist combinations with multiple separators
     - Whitespace variations and edge cases
-3. Full Resolve Flow Integration:
+2. Full Resolve Flow Integration:
     - Complete resolution process testing
     - Error handling throughout the flow
 
