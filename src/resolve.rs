@@ -13,10 +13,10 @@ use crate::{
 
 #[derive(Args)]
 pub struct ResolveArgs {
-    /// Path to the input plainlist file
+    /// Path to input plainlist file, or directory containing plainlists
     input: PathBuf,
 
-    /// Output path for the generated playlist
+    /// Output path for the generated playlist(s)
     #[arg(short, long)]
     output: Option<PathBuf>,
 
