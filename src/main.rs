@@ -29,10 +29,12 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Resolve plainlists against a music library to generate m3u playlists
+    ///
+    /// Parses one or multiple plainlists, reads your music library, resolves the tracks in the plainlist against the library, and finally generates m3u playlists that can be read by any music player.
     Resolve(ResolveArgs),
     /// Extract plainlists from other formats
     Extract(ExtractArgs),
-    /// Append tracks from a music library to a plainlist
+    /// Append tracks from a music library to a plainlist, optionally filtered by artist or album
     Append(AppendArgs),
 }
 
