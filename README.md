@@ -1,14 +1,26 @@
 # plainlist
 
-Manage music playlists in a plain text format!
+Manage your music playlists in a plain text format!
+
+The `plainlist` cli tool resolves these "plainlists" against your local music library to create `.m3u` playlist files
+that can then be read by any music player.
+
+### Why use plainlists?
+- simplicity: text files, simple format, hand-editable, git-trackable
+- independent of the music library
+    - add tracks you don't own yet
+    - resolve again when music files change
+    - share plainlists with others
+- independent of apps/players
+
 
 ## Format specification
 
 - Each line contains one track (except comment lines starting with `#` and empty lines)
 - Track format: `artist -- title` (including spaces around the separator `--`)
 - Multiple artists separated by `; `, ` feat. `, or ` / ` (including spaces), for example
-  - `artist1 feat. artist2; artist 3 -- track`
-  - `AC/DC / artist2 -- track`
+  - `artist1 feat. artist2; artist 3 -- title`
+  - `AC/DC / artist2 -- title`
 - The file extension is `.plainlist`
 
 ## Usage
@@ -18,12 +30,12 @@ Manage music playlists in a plain text format!
 Parses plainlists, reads your music library, resolves tracks against the library, and generates `.m3u` playlists.
 
 **Examples:**
-- Process single plainlist: `plainlist resolve --library=~/Music -o ~/Music/favorites.m3u favorites.plainlist`
-- Process all plainlists in directory: `plainlist resolve --library=~/Music -o ~/Music/playlists ~/plainlists`
+- Resolve single plainlist: `plainlist resolve --library=~/Music -o ~/Music/favorites.m3u favorites.plainlist`
+- Resolve all plainlists in directory: `plainlist resolve --library=~/Music -o ~/Music/playlists ~/plainlists`
 
 **Behavior:**
 - Missing or ambiguous tracks are reported and omitted from output playlists
-- Use `--portable` flag for relative paths in playlists
+- Use the `--portable` flag for relative paths in playlists
 
 ### Extract
 
@@ -46,10 +58,3 @@ Append tracks from the music library to an existing plainlist.
 **Examples:**
 - Filter by artist: `plainlist append --library ~/Music --artist "The Beatles" favorites.plainlist`
 - Filter by album: `plainlist append --library ~/Music --album "Help!" favorites.plainlist`
-
-## Why use plainlists?
-- simplicity: text files, simple format, hand-editable, git-trackable
-- independent of music library
-    - add tracks you don't own yet
-    - resolve again when files change
-- independent of apps/players
