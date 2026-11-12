@@ -29,3 +29,8 @@ walkdir = "2.5.0"
 
 [dev-dependencies]
 rstest = "0.26.1"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
