@@ -36,6 +36,15 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
     // TODO: ask user confirmation if both artist and album are None
     // (the whole library will be added)
 
+    // check .plainlist extension
+    let input_ext = args.input.extension();
+    if input_ext.is_none() || input_ext.unwrap() != "plainlist" {
+        anyhow::bail!(
+            "input '{}' does not have .plainlist file extension",
+            args.input.display()
+        )
+    }
+
     let mut tracks = scan_and_filter_tracks(&args)?;
     if tracks.is_empty() {
         info!("No matching tracks found");
@@ -47,7 +56,6 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
 
     let tracks: Vec<_> = tracks.into_iter().map(|lt| lt.track).collect();
 
-    // TODO: check if args.input is a valid plainlist?
     write_plainlist(&tracks, &args.input, true)
         .with_context(|| format!("failed to write to plainlist '{}'", args.input.display()))?;
     info!("Appended matching tracks to '{}'", args.input.display());
