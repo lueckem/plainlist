@@ -122,7 +122,16 @@ fn sort_tracks(tracks: &mut Vec<LocalTrack>) {
             (Some(_), None) => return std::cmp::Ordering::Less,
             (None, None) => return a.track.title.cmp(&b.track.title),
         }
-        // If albums are equal, compare track numbers
+        // If albums are equal, compare disc and track numbers
+        match (&a.disc, &b.disc) {
+            (Some(num_a), Some(num_b)) => {
+                let cmp = num_a.cmp(num_b);
+                if cmp != std::cmp::Ordering::Equal {
+                    return cmp;
+                }
+            }
+            _ => (),
+        }
         match (&a.number, &b.number) {
             (Some(num_a), Some(num_b)) => num_a.cmp(num_b),
             (None, Some(_)) => std::cmp::Ordering::Greater,
