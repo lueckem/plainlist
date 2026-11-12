@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
 use anyhow::Context;
 use clap::Args;
@@ -33,9 +33,6 @@ pub struct AppendArgs {
 /// This function scans the music library and appends matching tracks (filtered by artist, album)
 /// to an existing plainlist file.
 pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
-    // TODO: ask user confirmation if both artist and album are None
-    // (the whole library will be added)
-
     // check .plainlist extension
     let input_ext = args.input.extension();
     if input_ext.is_none() || input_ext.unwrap() != "plainlist" {
@@ -43,6 +40,13 @@ pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
             "input '{}' does not have .plainlist file extension",
             args.input.display()
         )
+    }
+
+    // ask confirmation before adding the whole library
+    if args.artist.is_none() && args.album.is_none() {
+        if !ask_confirmation() {
+            return Ok(());
+        }
     }
 
     let mut tracks = scan_and_filter_tracks(&args)?;
@@ -126,4 +130,20 @@ fn sort_tracks(tracks: &mut Vec<LocalTrack>) {
             (None, None) => a.track.title.cmp(&b.track.title),
         }
     });
+}
+
+fn ask_confirmation() -> bool {
+    loop {
+        print!("No album/artist filter provided. Really append the whole library? [Y/n] ");
+        std::io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+
+        match input.to_lowercase().trim() {
+            "" | "y" | "yes" => return true,
+            "n" | "no" | "q" => return false,
+            _ => (),
+        };
+    }
 }
