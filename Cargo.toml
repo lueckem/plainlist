@@ -14,7 +14,7 @@ version = "0.1.0"
 [dependencies]
 anyhow = "1.0.103"
 clap = { version = "4.6.1", features = ["derive"] }
-lofty = "0.24.0"
+lofty = "0.25.5"
 pathdiff = "0.2.3"
 rayon = "1.12.0"
 regex = "1.13.0"
