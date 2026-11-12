@@ -21,6 +21,7 @@
         packages = with pkgs; [
           rustc
           cargo
+          cargo-dist
         ];
       };
 
