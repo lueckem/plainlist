@@ -1,6 +1,7 @@
 # plainlist
 
 [![CI](https://github.com/lueckem/plainlist/actions/workflows/ci.yaml/badge.svg)](https://github.com/lueckem/plainlist/actions/workflows/ci.yaml)
+[![Version info](https://img.shields.io/crates/v/plainlist.svg)](https://crates.io/crates/plainlist)
 
 Manage your music playlists in a plain text format!
 
