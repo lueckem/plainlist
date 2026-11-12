@@ -31,10 +31,6 @@ impl NormalizedArtist {
     pub fn new(s: &str) -> Self {
         Self(normalize_str(s))
     }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
 }
 
 /// Normalized album name
@@ -44,10 +40,6 @@ pub struct NormalizedAlbum(String);
 impl NormalizedAlbum {
     pub fn new(s: &str) -> Self {
         Self(normalize_str(s))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
     }
 }
 
