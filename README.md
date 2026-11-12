@@ -1,5 +1,7 @@
 # plainlist
 
+[![CI](https://github.com/lueckem/plainlist/actions/workflows/ci.yaml/badge.svg)](https://github.com/lueckem/plainlist/actions/workflows/ci.yaml)
+
 Manage your music playlists in a plain text format!
 
 The `plainlist` cli tool resolves these "plainlists" against your local music library to create `.m3u` playlist files
