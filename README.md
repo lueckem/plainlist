@@ -7,6 +7,7 @@ Manage your music playlists in a plain text format!
 
 The `plainlist` cli tool resolves these "plainlists" against your local music library to create `.m3u` playlist files
 that can then be read by any music player.
+(The music files must have correct title and artist tags.)
 
 ### Why use plainlists?
 - simplicity: text files, simple format, hand-editable, git-trackable
