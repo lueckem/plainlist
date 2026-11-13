@@ -3,12 +3,14 @@ use clap::{Parser, Subcommand};
 use crate::{
     append::{AppendArgs, process_append},
     extract::{ExtractArgs, process_extract},
+    info::{InfoArgs, process_info},
     logging::init_logging,
     resolve::{ResolveArgs, process_resolve},
 };
 
 mod append;
 mod extract;
+mod info;
 mod library;
 mod logging;
 mod normalize;
@@ -34,6 +36,8 @@ enum Commands {
     Extract(ExtractArgs),
     /// Append tracks from a music library to a plainlist, optionally filtered by artist or album
     Append(AppendArgs),
+    /// Print information about a plainlist
+    Info(InfoArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -45,5 +49,6 @@ fn main() -> anyhow::Result<()> {
         Commands::Resolve(args) => process_resolve(args),
         Commands::Extract(args) => process_extract(args),
         Commands::Append(args) => process_append(args),
+        Commands::Info(args) => process_info(args),
     }
 }
