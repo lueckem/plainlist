@@ -116,7 +116,7 @@ pub fn collect_inputs_outputs(
 /// Ensure a file has the correct extension for a playlist type
 ///
 /// Validates that a file path has one of the valid extensions for the specified playlist type.
-fn ensure_extension(path: &Path, ptype: &PlaylistType) -> anyhow::Result<()> {
+pub fn ensure_extension(path: &Path, ptype: &PlaylistType) -> anyhow::Result<()> {
     match path.extension() {
         Some(e) if ptype.extensions().iter().any(|v| *v == e) => Ok(()),
         _ => bail!(

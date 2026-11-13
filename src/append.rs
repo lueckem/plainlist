@@ -7,7 +7,7 @@ use tracing::info;
 use crate::{
     normalize::{NormalizedAlbum, NormalizedArtist},
     track::{LocalTrack, scan_dir},
-    utils::write_plainlist,
+    utils::{PlaylistType, ensure_extension, write_plainlist},
 };
 
 #[derive(Args)]
@@ -33,14 +33,7 @@ pub struct AppendArgs {
 /// This function scans the music library and appends matching tracks (filtered by artist, album)
 /// to an existing plainlist file.
 pub fn process_append(args: AppendArgs) -> anyhow::Result<()> {
-    // check .plainlist extension
-    let input_ext = args.input.extension();
-    if input_ext.is_none() || input_ext.unwrap() != "plainlist" {
-        anyhow::bail!(
-            "input '{}' does not have .plainlist file extension",
-            args.input.display()
-        )
-    }
+    ensure_extension(&args.input, &PlaylistType::Plainlist)?;
 
     // ask confirmation before adding the whole library
     if args.artist.is_none() && args.album.is_none() {
