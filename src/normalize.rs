@@ -1,7 +1,10 @@
 //! String normalization utilities for music metadata
 
 use regex::Regex;
-use std::{collections::HashSet, sync::LazyLock};
+use std::{
+    collections::{BTreeSet, HashSet},
+    sync::LazyLock,
+};
 use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
 
 /// Normalized song title
@@ -24,7 +27,7 @@ impl NormalizedTitle {
 }
 
 /// Normalized artist name
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NormalizedArtist(String);
 
 impl NormalizedArtist {
@@ -34,6 +37,10 @@ impl NormalizedArtist {
 }
 
 pub fn norm_artist_set(artists: &[String]) -> HashSet<NormalizedArtist> {
+    artists.iter().map(|a| NormalizedArtist::new(a)).collect()
+}
+
+pub fn norm_artist_btreeset(artists: &[String]) -> BTreeSet<NormalizedArtist> {
     artists.iter().map(|a| NormalizedArtist::new(a)).collect()
 }
 

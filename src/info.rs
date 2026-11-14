@@ -1,11 +1,15 @@
-use std::{cmp::Reverse, collections::HashMap, path::PathBuf};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, HashMap},
+    path::PathBuf,
+};
 
 use anyhow::Context;
 use clap::Args;
 
 use crate::{
-    normalize::NormalizedArtist,
-    track::read_tracks_from_plainlist,
+    normalize::{NormalizedArtist, NormalizedTitle, norm_artist_btreeset},
+    track::{Track, read_tracks_from_plainlist},
     utils::{PlaylistType, ensure_extension},
 };
 
@@ -36,10 +40,20 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     // since it is a valid plainlist file, this never panics
     let plainlist_filename = args.input.file_name().unwrap();
 
-    println!("--- '{}' ---", plainlist_filename.display());
-    println!("Number of tracks: {}", tracks.len());
+    println!("----- '{}' -----", plainlist_filename.display());
+    println!("Number of songs: {}", tracks.len());
     println!("Number of artists: {}", artists.len());
     println!("");
+
+    let dup_idxs = duplicate_tracks_idxs(&tracks);
+    if !dup_idxs.is_empty() {
+        println!("Number of duplicate songs: {}", dup_idxs.len());
+        println!("Duplicate songs:");
+        for group in dup_idxs {
+            println!("{}  ({}x)", tracks[group[0]], group.len());
+        }
+        println!("");
+    }
 
     let padding = artists
         .iter()
@@ -56,4 +70,61 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Find duplicate tracks.
+///
+/// Two tracks are considered duplicate if they have the same normalized title
+/// and the same normalized artist sets.
+///
+/// Returns groups of indices into `tracks`. Each group has at least two
+/// indices in ascending order, and groups are sorted by their first index.
+fn duplicate_tracks_idxs(tracks: &[Track]) -> Vec<Vec<usize>> {
+    let mut groups: HashMap<(NormalizedTitle, BTreeSet<NormalizedArtist>), Vec<usize>> =
+        HashMap::new();
+
+    for (i, t) in tracks.iter().enumerate() {
+        let key = (
+            NormalizedTitle::new(&t.title),
+            norm_artist_btreeset(&t.artists),
+        );
+        groups.entry(key).or_default().push(i);
+    }
+
+    let mut duplicates: Vec<Vec<usize>> = groups.into_values().filter(|g| g.len() > 1).collect();
+    duplicates.sort_unstable_by_key(|g| g[0]);
+    duplicates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn track(title: &str, artists: &[&str]) -> Track {
+        Track::new(
+            title.to_string(),
+            artists.iter().map(|a| a.to_string()).collect(),
+        )
+    }
+
+    #[test]
+    fn test_duplicate_tracks_idxs() {
+        let tracks = vec![
+            track("Song A", &["Artist 1", "Artist 2"]),
+            track("Song B", &["Artist 1", "Artist 2"]),
+            track("Song A", &["Artist 3", "Artist 4"]),
+            track("Song A", &["Artist 5", "Artist 6"]),
+            track("Song A", &["Artist 1", "Artist 2"]),
+            track("Song A", &["Artist 2", "Artist 1"]),
+            track("Song A", &["Artist 1"]),
+            track("Song B", &["Artist 1", "Artist 2"]),
+            track("Song C", &["Artist 1", "Artist 2"]),
+            track("Song A", &["Artist 5", "Artist 6"]),
+        ];
+
+        assert_eq!(
+            duplicate_tracks_idxs(&tracks),
+            vec![vec![0, 4, 5], vec![1, 7], vec![3, 9]]
+        );
+    }
 }
