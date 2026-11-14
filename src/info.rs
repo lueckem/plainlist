@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(Args)]
 pub struct InfoArgs {
-    /// Path to the input plainlist file
+    /// Path to the plainlist file
     input: PathBuf,
 }
 
@@ -62,11 +62,17 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
         .max()
         .unwrap_or(0);
 
-    let header = format!("{:<padding$} -  #songs", "Top artists", padding = padding);
+    let header = format!(
+        "    {:<padding$} -  #songs",
+        "Top artists",
+        padding = padding
+    );
     println!("{header}");
     println!("{}", "-".repeat(header.chars().count()));
+    let mut i = 1;
     for (a, count) in artists.iter().take(10) {
-        println!("{:<padding$} -  {}", a, count, padding = padding);
+        println!("{:>2}. {:<padding$} -  {}", i, a, count, padding = padding);
+        i += 1;
     }
 
     Ok(())
