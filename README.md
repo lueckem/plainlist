@@ -62,3 +62,9 @@ Append tracks from the music library to an existing plainlist.
 **Examples:**
 - Filter by artist: `plainlist append --library ~/Music --artist "The Beatles" favorites.plainlist`
 - Filter by album: `plainlist append --library ~/Music --album "Help!" favorites.plainlist`
+
+### Info
+
+Print short summary of a plainlist: number of songs, number of artists, duplicate songs (if any), and top 10 artists.
+
+**Example:** `plainlist info favorites.plainlist`
