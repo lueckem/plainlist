@@ -5,7 +5,7 @@ use strsim::levenshtein;
 use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
 
 use crate::{
-    normalize::{NormalizedArtist, NormalizedTitle},
+    normalize::{NormalizedArtist, NormalizedTitle, norm_artist_set},
     track::{LocalTrack, Track},
 };
 
@@ -181,10 +181,6 @@ fn unique_closest_title(query_title: &str, candidates: &[ScoredCandidate<'_>]) -
     let mut at_min = distances.iter().enumerate().filter(|&(_, &d)| d == min);
     let (idx, _) = at_min.next()?;
     at_min.next().is_none().then_some(idx)
-}
-
-fn norm_artist_set(artists: &[String]) -> HashSet<NormalizedArtist> {
-    artists.iter().map(|a| NormalizedArtist::new(a)).collect()
 }
 
 /// Normalize title by dealing with unicode and converting to lowercase.

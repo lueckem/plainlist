@@ -1,7 +1,7 @@
 //! String normalization utilities for music metadata
 
 use regex::Regex;
-use std::sync::LazyLock;
+use std::{collections::HashSet, sync::LazyLock};
 use unicode_normalization::{UnicodeNormalization, char::is_combining_mark};
 
 /// Normalized song title
@@ -31,6 +31,10 @@ impl NormalizedArtist {
     pub fn new(s: &str) -> Self {
         Self(normalize_str(s))
     }
+}
+
+pub fn norm_artist_set(artists: &[String]) -> HashSet<NormalizedArtist> {
+    artists.iter().map(|a| NormalizedArtist::new(a)).collect()
 }
 
 /// Normalized album name
