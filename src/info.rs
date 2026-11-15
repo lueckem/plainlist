@@ -6,6 +6,10 @@ use std::{
 
 use anyhow::Context;
 use clap::Args;
+use tabled::settings::{
+    Alignment,
+    object::{Columns, Segment},
+};
 
 use crate::{
     normalize::{NormalizedArtist, NormalizedTitle, norm_artist_btreeset},
@@ -37,40 +41,11 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     println!("Number of artists: {}", ac.len());
     println!("");
 
-    let dup_idxs = duplicate_tracks_idxs(&tracks);
-    if !dup_idxs.is_empty() {
-        println!("Number of duplicate songs: {}", dup_idxs.len());
-        println!("Duplicate songs:");
-        for group in dup_idxs {
-            println!("{}  ({}x)", tracks[group[0]], group.len());
-        }
-        println!("");
-    }
+    // print duplicates if any
+    print_duplicates(&tracks);
 
-    let mut builder = tabled::builder::Builder::default();
-    builder.push_record(["", "Top artists", "# songs", "% songs"]);
-    let mut i: usize = 1;
-    for (a, count) in ac.iter().take(10) {
-        let record: [String; 4] = [
-            i.to_string(),
-            a.clone(),
-            count.to_string(),
-            format!("{:.1}", *count as f64 / tracks.len() as f64 * 100.0),
-        ];
-        builder.push_record(record);
-        i += 1;
-    }
-    let mut table = builder.build();
-    table.modify(
-        tabled::settings::object::Segment::all(),
-        tabled::settings::Alignment::right(),
-    );
-    table.modify(
-        tabled::settings::object::Columns::one(1),
-        tabled::settings::Alignment::left(),
-    );
-    table.with(tabled::settings::Style::rounded());
-    println!("{table}");
+    // print top artists table
+    print_top_artists(ac, tracks.len());
 
     Ok(())
 }
@@ -95,6 +70,19 @@ fn artists_counts(tracks: &[Track]) -> Vec<(String, usize)> {
     artists
 }
 
+/// Check if there are duplicates and print them
+fn print_duplicates(tracks: &[Track]) {
+    let dup_idxs = duplicate_tracks_idxs(&tracks);
+    if !dup_idxs.is_empty() {
+        println!("Number of duplicate songs: {}", dup_idxs.len());
+        println!("Duplicate songs:");
+        for group in dup_idxs {
+            println!("{}  ({}x)", tracks[group[0]], group.len());
+        }
+        println!("");
+    }
+}
+
 /// Find duplicate tracks.
 ///
 /// Two tracks are considered duplicate if they have the same normalized title
@@ -117,6 +105,35 @@ fn duplicate_tracks_idxs(tracks: &[Track]) -> Vec<Vec<usize>> {
     let mut duplicates: Vec<Vec<usize>> = groups.into_values().filter(|g| g.len() > 1).collect();
     duplicates.sort_unstable_by_key(|g| g[0]);
     duplicates
+}
+
+fn print_top_artists(ac: Vec<(String, usize)>, num_tracks: usize) {
+    let num_tracks = num_tracks as f64;
+    let mut builder = tabled::builder::Builder::new();
+
+    // header
+    builder.push_record(["", "Top artists", "# songs", "% songs"]);
+
+    // push records
+    let mut i: usize = 1;
+    for (a, count) in ac.iter().take(10) {
+        let record: [String; 4] = [
+            i.to_string(),
+            a.clone(),
+            count.to_string(),
+            format!("{:.1}", *count as f64 / num_tracks * 100.0),
+        ];
+        builder.push_record(record);
+        i += 1;
+    }
+
+    // create and style table
+    let mut table = builder.build();
+    table.modify(Segment::all(), Alignment::right());
+    table.modify(Columns::one(1), Alignment::left());
+    table.with(tabled::settings::Style::rounded());
+
+    println!("{table}");
 }
 
 #[cfg(test)]
