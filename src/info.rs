@@ -32,6 +32,7 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     let ac = artists_counts(&tracks);
 
     println!("----- '{}' -----", plainlist_filename.display());
+    println!("");
     println!("Number of songs: {}", tracks.len());
     println!("Number of artists: {}", ac.len());
     println!("");
@@ -46,25 +47,30 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
         println!("");
     }
 
-    let padding = ac
-        .iter()
-        .take(10)
-        .map(|(a, _)| a.chars().count())
-        .max()
-        .unwrap_or(0);
-
-    let header = format!(
-        "    {:<padding$} -  #songs",
-        "Top artists",
-        padding = padding
-    );
-    println!("{header}");
-    println!("{}", "-".repeat(header.chars().count()));
-    let mut i = 1;
+    let mut builder = tabled::builder::Builder::default();
+    builder.push_record(["", "Top artists", "# songs", "% songs"]);
+    let mut i: usize = 1;
     for (a, count) in ac.iter().take(10) {
-        println!("{:>2}. {:<padding$} -  {}", i, a, count, padding = padding);
+        let record: [String; 4] = [
+            i.to_string(),
+            a.clone(),
+            count.to_string(),
+            format!("{:.1}", *count as f64 / tracks.len() as f64 * 100.0),
+        ];
+        builder.push_record(record);
         i += 1;
     }
+    let mut table = builder.build();
+    table.modify(
+        tabled::settings::object::Segment::all(),
+        tabled::settings::Alignment::right(),
+    );
+    table.modify(
+        tabled::settings::object::Columns::one(1),
+        tabled::settings::Alignment::left(),
+    );
+    table.with(tabled::settings::Style::rounded());
+    println!("{table}");
 
     Ok(())
 }
