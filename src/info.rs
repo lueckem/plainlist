@@ -21,6 +21,10 @@ use crate::{
 pub struct InfoArgs {
     /// Path to the plainlist file
     input: PathBuf,
+
+    /// How many top artists to print
+    #[arg(short, long, default_value_t = 10)]
+    top_artists: usize,
 }
 
 /// Print information about a plainlist
@@ -45,7 +49,9 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     print_duplicates(&tracks);
 
     // print top artists table
-    print_top_artists(ac, tracks.len());
+    if args.top_artists > 0 {
+        print_top_artists(ac, tracks.len(), args.top_artists);
+    }
 
     Ok(())
 }
@@ -107,7 +113,7 @@ fn duplicate_tracks_idxs(tracks: &[Track]) -> Vec<Vec<usize>> {
     duplicates
 }
 
-fn print_top_artists(ac: Vec<(String, usize)>, num_tracks: usize) {
+fn print_top_artists(ac: Vec<(String, usize)>, num_tracks: usize, num_top_artists: usize) {
     let num_tracks = num_tracks as f64;
     let mut builder = tabled::builder::Builder::new();
 
@@ -116,7 +122,7 @@ fn print_top_artists(ac: Vec<(String, usize)>, num_tracks: usize) {
 
     // push records
     let mut i: usize = 1;
-    for (a, count) in ac.iter().take(10) {
+    for (a, count) in ac.iter().take(num_top_artists) {
         let record: [String; 4] = [
             i.to_string(),
             a.clone(),
