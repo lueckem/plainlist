@@ -25,24 +25,15 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     let tracks = read_tracks_from_plainlist(&args.input)
         .with_context(|| format!("failed to parse plainlist '{}'", args.input.display()))?;
 
-    // norm_artist -> (artist, count)
-    let mut artists: HashMap<NormalizedArtist, (String, usize)> = HashMap::new();
-    for t in tracks.iter() {
-        for a in t.artists.iter() {
-            let norm_a = NormalizedArtist::new(a);
-            artists.entry(norm_a).or_insert((a.clone(), 0)).1 += 1;
-        }
-    }
-    // (artist, count)
-    let mut artists: Vec<(String, usize)> = artists.values().cloned().collect();
-    artists.sort_unstable_by_key(|a| Reverse(a.1));
-
     // since it is a valid plainlist file, this never panics
     let plainlist_filename = args.input.file_name().unwrap();
 
+    // (artist, count)
+    let ac = artists_counts(&tracks);
+
     println!("----- '{}' -----", plainlist_filename.display());
     println!("Number of songs: {}", tracks.len());
-    println!("Number of artists: {}", artists.len());
+    println!("Number of artists: {}", ac.len());
     println!("");
 
     let dup_idxs = duplicate_tracks_idxs(&tracks);
@@ -55,7 +46,7 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
         println!("");
     }
 
-    let padding = artists
+    let padding = ac
         .iter()
         .take(10)
         .map(|(a, _)| a.chars().count())
@@ -70,12 +61,32 @@ pub fn process_info(args: InfoArgs) -> anyhow::Result<()> {
     println!("{header}");
     println!("{}", "-".repeat(header.chars().count()));
     let mut i = 1;
-    for (a, count) in artists.iter().take(10) {
+    for (a, count) in ac.iter().take(10) {
         println!("{:>2}. {:<padding$} -  {}", i, a, count, padding = padding);
         i += 1;
     }
 
     Ok(())
+}
+
+/// Extract all artists and their counts from tracks.
+///
+/// Returns a Vec with elements (artist, count),
+/// sorted by count in descending order.
+fn artists_counts(tracks: &[Track]) -> Vec<(String, usize)> {
+    // norm_artist -> (artist, count)
+    let mut artists: HashMap<NormalizedArtist, (String, usize)> = HashMap::new();
+
+    for t in tracks.iter() {
+        for a in t.artists.iter() {
+            let norm_a = NormalizedArtist::new(a);
+            artists.entry(norm_a).or_insert((a.clone(), 0)).1 += 1;
+        }
+    }
+    // (artist, count)
+    let mut artists: Vec<(String, usize)> = artists.values().cloned().collect();
+    artists.sort_unstable_by_key(|a| Reverse(a.1));
+    artists
 }
 
 /// Find duplicate tracks.
