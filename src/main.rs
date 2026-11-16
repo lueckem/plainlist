@@ -6,6 +6,7 @@ use crate::{
     info::{InfoArgs, process_info},
     logging::init_logging,
     resolve::{ResolveArgs, process_resolve},
+    strip::{StripArgs, process_strip},
 };
 
 mod append;
@@ -15,6 +16,7 @@ mod library;
 mod logging;
 mod normalize;
 mod resolve;
+mod strip;
 mod track;
 mod utils;
 
@@ -38,6 +40,8 @@ enum Commands {
     Append(AppendArgs),
     /// Print information about a plainlist
     Info(InfoArgs),
+    /// Strip all missing tracks from a plainlist
+    Strip(StripArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -50,5 +54,6 @@ fn main() -> anyhow::Result<()> {
         Commands::Extract(args) => process_extract(args),
         Commands::Append(args) => process_append(args),
         Commands::Info(args) => process_info(args),
+        Commands::Strip(args) => process_strip(args),
     }
 }
