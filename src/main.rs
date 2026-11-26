@@ -42,7 +42,7 @@ enum Commands {
     Info(InfoArgs),
     /// Strip all missing tracks from a plainlist
     ///
-    /// Resolves a plainlist against your music library and removes all missing tracks.
+    /// Resolves a plainlist against your music library, deletes all missing tracks, and saves the result as a new plainlist.
     Strip(StripArgs),
 }
 

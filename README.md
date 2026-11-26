@@ -68,3 +68,9 @@ Append tracks from the music library to an existing plainlist.
 Print short summary of a plainlist: number of songs, number of artists, duplicate songs (if any), and top 10 artists.
 
 **Example:** `plainlist info favorites.plainlist`
+
+### Strip
+
+Resolves a plainlist against your music library, deletes all tracks from the plainlist that are not in the library, and saves the result as a new plainlist.
+
+**Example:** `plainlist strip --library ~/Music -o my_favorites.plainlist favorites.plainlist`
