@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Features
+- `extract` command: added support for JSPF format
+
+
 ## 0.2.0 (2026-11-26)
 
 ### Features

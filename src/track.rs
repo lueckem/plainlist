@@ -207,8 +207,9 @@ fn read_single(tag: &Tag, key: ItemKey) -> Option<Vec<String>> {
     (!artist.is_empty()).then(|| split_artists(artist))
 }
 
-/// Split artist string into individual artists by various separators
-fn split_artists(artist: &str) -> Vec<String> {
+/// Split an artist string into individual artists by separators
+/// ";", " / "; " feat. ", and " ft. "
+pub fn split_artists(artist: &str) -> Vec<String> {
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r";| / | feat\.? | ft\.? ").unwrap());
 
     RE.split(artist)

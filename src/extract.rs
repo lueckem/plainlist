@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 use crate::{
-    track::{LocalTrack, Track},
+    track::{LocalTrack, Track, split_artists},
     utils::{PlaylistType, collect_inputs_outputs, write_plainlist},
 };
 
@@ -23,17 +23,20 @@ enum ExtractSource {
     M3U,
     /// Spotify export JSON format
     Spotify,
+    /// JSON format for sharing playlists
+    JSPF,
 }
 
 impl ExtractSource {
     /// Guess the extraction source from file extension
     fn guess_from_path(p: &Path) -> Option<Self> {
-        let ext = p.extension()?.to_ascii_lowercase();
-        if ext == "m3u" || ext == "m3u8" {
-            return Some(Self::M3U);
-        }
+        let ext = p.extension()?.to_ascii_lowercase().into_string().ok()?;
 
-        None
+        match ext.as_str() {
+            "m3u" | "m3u8" => Some(Self::M3U),
+            "jspf" => Some(Self::JSPF),
+            _ => None,
+        }
     }
 }
 
@@ -50,6 +53,9 @@ pub struct ExtractArgs {
     #[arg(short)]
     output: Option<PathBuf>,
 }
+
+// TODO: document which formats work with directories
+// and which only with single files
 
 /// Extract plainlists from other formats
 ///
@@ -69,8 +75,11 @@ pub fn process_extract(args: ExtractArgs) -> anyhow::Result<()> {
     match extr_source {
         ExtractSource::M3U => process_extract_m3u(args),
         ExtractSource::Spotify => process_extract_spotify(args),
+        ExtractSource::JSPF => process_extract_jspf(args),
     }
 }
+
+// --------- M3U ------------
 
 fn process_extract_m3u(args: ExtractArgs) -> anyhow::Result<()> {
     let in_path = absolute(args.input)?;
@@ -156,6 +165,8 @@ fn extract_m3u(in_path: &Path, out_path: &Path) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// --------- Spotify ------------
 
 /// Extract tracks from a Spotify export JSON file and writes associated plainlists
 fn process_extract_spotify(args: ExtractArgs) -> anyhow::Result<()> {
@@ -250,5 +261,61 @@ impl From<SpotifyTrack> for Track {
         };
 
         Track::new(title, artists)
+    }
+}
+
+// --------- JSPF ------------
+
+// TODO: should this only accept an input file or also directory?
+fn process_extract_jspf(args: ExtractArgs) -> anyhow::Result<()> {
+    if !args.input.is_file() {
+        anyhow::bail!("input has to be a '.jspf' file");
+    }
+    // TODO: handle paths and names correctly
+    if args.output.is_none() {
+        anyhow::bail!("provide an output file name");
+    }
+    let out_path = args.output.unwrap();
+
+    let contents = fs::read_to_string(&args.input)?;
+
+    info!("Parsing '{}'", &args.input.display());
+    let jspf_file: JSPFPFile =
+        serde_json::from_str(&contents).context("failed to parse JSPF file")?;
+
+    let playlist = &jspf_file.playlist;
+
+    let tracks: Vec<Track> = playlist
+        .track
+        .iter()
+        .map(|item| item.clone().into())
+        .collect();
+    info!("Extracted {} tracks", tracks.len());
+
+    write_plainlist(&tracks, &out_path, false)?;
+    info!("Created plainlist '{}'", out_path.display());
+
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct JSPFPFile {
+    playlist: JSPFPlaylist,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct JSPFPlaylist {
+    track: Vec<JSPFTrack>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct JSPFTrack {
+    title: String,
+    creator: String,
+}
+
+impl From<JSPFTrack> for Track {
+    fn from(value: JSPFTrack) -> Self {
+        Track::new(value.title, split_artists(&value.creator))
     }
 }

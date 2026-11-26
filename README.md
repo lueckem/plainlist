@@ -54,6 +54,7 @@ Extract plainlists from other formats.
     - Invalid entries in M3U files are skipped
 - `--from spotify`: Spotify export JSON format
     - creates one plainlist per playlist in the export
+- `--from jspf`: JSON format for sharing playlists
 
 ### Append
 
