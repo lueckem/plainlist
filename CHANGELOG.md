@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-26)
 
 ### Features
 - added command `info` that prints information about a plainlist
