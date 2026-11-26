@@ -48,12 +48,10 @@ pub fn process_strip(args: StripArgs) -> anyhow::Result<()> {
     }
     let library = Library::from_tracks(tracks);
 
-    info!(
-        "Stripping missing tracks from '{}' ...",
-        args.input.display()
-    );
+    info!("Stripping missing tracks from '{}'", args.input.display());
     let content = std::fs::read_to_string(&args.input)?;
     let mut stripped_content = String::with_capacity(content.len());
+    let mut num_stripped = 0;
 
     for (i, line) in content.lines().enumerate() {
         let l = line.trim();
@@ -70,7 +68,8 @@ pub fn process_strip(args: StripArgs) -> anyhow::Result<()> {
             .with_context(|| format!("invalid format in line {}: '{}'", i + 1, l))?;
         match library.query(&track) {
             QueryResult::NotFound => {
-                info!("Stripping (line {}): '{}'", i + 1, l);
+                num_stripped += 1;
+                info!("line {}: '{}'", i + 1, l);
             }
             _ => {
                 stripped_content.push_str(line);
@@ -80,6 +79,11 @@ pub fn process_strip(args: StripArgs) -> anyhow::Result<()> {
     }
 
     std::fs::write(&output, stripped_content)?;
+    if num_stripped > 0 {
+        info!("Deleted {} missing tracks", num_stripped);
+    } else {
+        info!("No missing tracks found; no tracks deleted");
+    }
     info!("Created stripped plainlist '{}'", output.display());
     Ok(())
 }
